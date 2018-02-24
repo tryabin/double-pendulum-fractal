@@ -74,10 +74,6 @@ __device__ RungeKuttaStepResults compute_rk_step(float m1, float m2,
     
     return newRungeKuttaStepResults;
 }        
-                                            
-                                            
-                                                              
-
 
 
 __device__ PendulumState compute_double_pendulum_step_rk4(float m1, float m2,
@@ -117,29 +113,36 @@ __device__ PendulumState compute_double_pendulum_step_rk4(float m1, float m2,
 }
 
 
-
 __global__ void compute_double_pendulum_fractal_image(float point1Mass, float point2Mass,
                                                       float pendulum1Length, float pendulum2Length,
                                                       float gravity,
                                                       float angle1Min, float angle1Max,
                                                       float angle2Min, float angle2Max,
-                                                      int numberOfAnglesToTest,
+                                                      int numberOfAnglesToTestPerKernalCallRatio,
+                                                      int curKernelStartX, int curKernelStartY,
+                                                      int totalNumberOfAnglesToTestX, int totalNumberOfAnglesToTestY,
                                                       float timestep,
                                                       float maxTimeToSeeIfPendulumFlips,
                                                       char *colors) {
 
-    
     int stepX = gridDim.x*blockDim.x;
     int stepY =  gridDim.y*blockDim.y;
 
     int startX = threadIdx.x + blockDim.x*blockIdx.x;
     int startY = threadIdx.y + blockDim.y*blockIdx.y;
     
-    for (int x = startX; x < numberOfAnglesToTest; x += stepX) {
-        float angle1 = angle1Min + float(x)*(angle1Max - angle1Min)/float(numberOfAnglesToTest);
-
-        for (int y = startY; y < numberOfAnglesToTest; y += stepY) {
-            float angle2 = angle2Min + float(y)*(angle2Max - angle2Min)/float(numberOfAnglesToTest);
+    // int scaleFactorX = totalNumberOfAnglesToTestX/numberOfAnglesToTestPerKernelCallX;
+    // int scaleFactorY = totalNumberOfAnglesToTestY/numberOfAnglesToTestPerKernelCallY;
+    int realStepX = stepX*numberOfAnglesToTestPerKernalCallRatio;
+    int realStepY = stepY*numberOfAnglesToTestPerKernalCallRatio;
+    int realStartX = startX*numberOfAnglesToTestPerKernalCallRatio + curKernelStartX;
+    int realStartY = startY*numberOfAnglesToTestPerKernalCallRatio + curKernelStartY;
+    
+    for (int x = realStartX; x < totalNumberOfAnglesToTestX; x += realStepX) {        
+        float angle1 = angle1Min + float(x)*(angle1Max - angle1Min)/float(totalNumberOfAnglesToTestX);
+        
+        for (int y = realStartY; y < totalNumberOfAnglesToTestY; y += realStepY) {    
+            float angle2 = angle2Min + float(y)*(angle2Max - angle2Min)/float(totalNumberOfAnglesToTestY);
             
             // Skip the current pendulum if it doesn't have enough initial energy to flip the first mass.
             Point point1Position = get_point_position({0,0}, angle1, pendulum1Length);
@@ -147,8 +150,10 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
             float potentialEnergy1 = (point1Position.y + pendulum1Length)*point1Mass*gravity;
             float potentialEnergy2 = (point2Position.y + pendulum1Length + pendulum2Length)*point2Mass*gravity;
             float totalPotentialEnergy = potentialEnergy1 + potentialEnergy2;
-            if (totalPotentialEnergy < point1Mass*gravity*pendulum1Length) {
-                break;
+            
+            float minimumEnergyNeededForFlip = point1Mass*2*pendulum1Length*gravity;
+            if (totalPotentialEnergy < minimumEnergyNeededForFlip) {
+                continue;
             }
 
             PendulumState pendulumState;
@@ -161,12 +166,7 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
             while (curTime < maxTimeToSeeIfPendulumFlips) {
                 
                 Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
-                
-                // if (x == 4 && y == 4) {
-                    // printf("point1OriginalPosition X =  %f\n", point1OriginalPosition.x);
-                    // printf("point1OriginalPosition Y =  %f\n", point1OriginalPosition.y);
-                // }
-            
+                      
                 pendulumState = compute_double_pendulum_step_rk4(point1Mass, point2Mass,
                                                                  pendulum1Length, pendulum2Length,
                                                                  pendulumState.angle1, pendulumState.angle2,
@@ -182,17 +182,17 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
                     break;
                 }
             }
-            
-            
+
             // Color the pixel.
             float curTimeMs = curTime*1000;
-            int area = numberOfAnglesToTest*numberOfAnglesToTest;
-            int pixelIndex = (numberOfAnglesToTest - y - 1)*numberOfAnglesToTest + x;
+            int area = totalNumberOfAnglesToTestX*totalNumberOfAnglesToTestY;
+            int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
             
             float shift = 1.1;
             float r = 1.0;
             float g = 4.0;
             float b = 7.2;
+            
             colors[pixelIndex] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * r * shift)) * 255;
             colors[pixelIndex+area] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * g * shift)) * 255;
             colors[pixelIndex+2*area] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * b * shift)) * 255;

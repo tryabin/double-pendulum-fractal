@@ -29,8 +29,8 @@ class PrimaryWindow(pyglet.window.Window):
     point1AngularVelocity = 0
     point2AngularVelocity = 0
 
-    point1Angle = pi + .1
-    point2Angle = pi
+    point1Angle = pi
+    point2Angle = 0
 
     origin = [0, 2]
     originPixels = [origin[0]*pixelsPerMeter + screenWidth/2, origin[1]*pixelsPerMeter + screenHeight/2]
