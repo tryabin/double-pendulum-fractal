@@ -21,30 +21,30 @@ typedef struct RungeKuttaStepResults {
 } RungeKuttaStepResults;
 
 
+typedef struct AccelerationResults {
+    float acceleration1;
+    float acceleration2;
+} AccelerationResults;
 
-__device__ float compute_acceleration_point1(float m1, float m2,
-                                             float length1, float length2,
-                                             float angle1, float angle2,
-                                             float w1, float w2,
-                                             float g) {
+
+
+__device__ AccelerationResults compute_accelerations(float m1, float m2,
+                                                     float length1, float length2,
+                                                     float angle1, float angle2,
+                                                     float w1, float w2,
+                                                     float g) {
                                                                 
     float u = 1 + m1/m2;
     float delta = angle1 - angle2;
-    return (g*(sin(angle2)*cos(delta) - u*sin(angle1)) - (length2*pow(w2, 2) + length1*pow(w1, 2)*cos(delta))*sin(delta)) / (length1*(u - pow(cos(delta), 2)));
+
+    AccelerationResults results;
+    results.acceleration1 = (g*(sin(angle2)*cos(delta) - u*sin(angle1)) - (length2*pow(w2, 2) + length1*pow(w1, 2)*cos(delta))*sin(delta)) / (length1*(u - pow(cos(delta), 2)));
+    results.acceleration2 = (g*u*(sin(angle1)*cos(delta) - sin(angle2)) + (u*length1*pow(w1, 2) + length2*pow(w2, 2)*cos(delta))*sin(delta)) / (length2*(u - pow(cos(delta), 2)));
+
+    return results;
 }
-
-
-__device__ float compute_acceleration_point2(float m1, float m2,
-                                             float length1, float length2,
-                                             float angle1, float angle2,
-                                             float w1, float w2,
-                                             float g) {
-    float u = 1 + m1/m2;
-    float delta = angle1 - angle2;
-    return (g*u*(sin(angle1)*cos(delta) - sin(angle2)) + (u*length1*pow(w1, 2) + length2*pow(w2, 2)*cos(delta))*sin(delta)) / (length2*(u - pow(cos(delta), 2)));
-}
-
-    
+ 
+ 
 __device__ RungeKuttaStepResults compute_rk_step(float m1, float m2,
                                                  float length1, float length2,
                                                  float angle1, float angle2,
@@ -60,15 +60,13 @@ __device__ RungeKuttaStepResults compute_rk_step(float m1, float m2,
     float newAngularVelocity1 = w1 + timestep*previousRungeKuttaStepResults.acceleration1;
     float newAngularVelocity2 = w2 + timestep*previousRungeKuttaStepResults.acceleration2;
 
-    float newAcceleration1 = compute_acceleration_point1(m1, m2, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2, g);
-    float newAcceleration2 = compute_acceleration_point2(m1, m2, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2, g);
-
+    AccelerationResults accelerationResults = compute_accelerations(m1, m2, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2, g);
     float newVelocity1 = w1 + timestep*previousRungeKuttaStepResults.acceleration1;
     float newVelocity2 = w2 + timestep*previousRungeKuttaStepResults.acceleration2;
 
     RungeKuttaStepResults newRungeKuttaStepResults;
-    newRungeKuttaStepResults.acceleration1 = newAcceleration1;
-    newRungeKuttaStepResults.acceleration2 = newAcceleration2;
+    newRungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
+    newRungeKuttaStepResults.acceleration2 = accelerationResults.acceleration2;
     newRungeKuttaStepResults.velocity1 = newVelocity1;
     newRungeKuttaStepResults.velocity2 = newVelocity2;
     
@@ -131,8 +129,6 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
     int startX = threadIdx.x + blockDim.x*blockIdx.x;
     int startY = threadIdx.y + blockDim.y*blockIdx.y;
     
-    // int scaleFactorX = totalNumberOfAnglesToTestX/numberOfAnglesToTestPerKernelCallX;
-    // int scaleFactorY = totalNumberOfAnglesToTestY/numberOfAnglesToTestPerKernelCallY;
     int realStepX = stepX*numberOfAnglesToTestPerKernalCallRatio;
     int realStepY = stepY*numberOfAnglesToTestPerKernalCallRatio;
     int realStartX = startX*numberOfAnglesToTestPerKernalCallRatio + curKernelStartX;
@@ -188,7 +184,7 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
             int area = totalNumberOfAnglesToTestX*totalNumberOfAnglesToTestY;
             int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
             
-            float shift = 1.1;
+            float shift = .11;
             float r = 1.0;
             float g = 4.0;
             float b = 7.2;
