@@ -11,7 +11,7 @@ from numerical_routines import *
 class PrimaryWindow(pyglet.window.Window):
 
     FPS = 60
-    timestep = .01
+    timestep = .001
     numStepsToComputePerFrame = int(ceil((1/FPS)/timestep))
     smoothConfig = pyglet_utils.get_smooth_config()
 
@@ -29,8 +29,8 @@ class PrimaryWindow(pyglet.window.Window):
     point1AngularVelocity = 0
     point2AngularVelocity = 0
 
-    point1Angle = pi
-    point2Angle = 0
+    point1Angle = pi+.1
+    point2Angle = 1
 
     origin = [0, 2]
     originPixels = [origin[0]*pixelsPerMeter + screenWidth/2, origin[1]*pixelsPerMeter + screenHeight/2]
