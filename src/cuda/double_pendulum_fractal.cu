@@ -152,6 +152,7 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
                 continue;
             }
 
+            // Simulate the pendulum.
             PendulumState pendulumState;
             pendulumState.angle1 = angle1;
             pendulumState.angle2 = angle2;
@@ -159,10 +160,9 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
             pendulumState.angularVelocity2 = 0;
             
             float curTime = 0;
-            while (curTime < maxTimeToSeeIfPendulumFlips) {
-                
-                Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
-                      
+            Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
+            while (curTime < maxTimeToSeeIfPendulumFlips) {               
+            
                 pendulumState = compute_double_pendulum_step_rk4(point1Mass, point2Mass,
                                                                  pendulum1Length, pendulum2Length,
                                                                  pendulumState.angle1, pendulumState.angle2,
@@ -170,13 +170,16 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
                                                                  gravity,
                                                                  timestep);
                 
-                Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
                 
-                // Check to see if the first mass flipped.
-                curTime += timestep;
+                
+                // Check to see if the first mass flipped. 
+                Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);                
                 if (point1CurrentPosition.x*point1OriginalPosition.x < 0 && point1CurrentPosition.y > 0) {
                     break;
                 }
+                point1OriginalPosition = point1CurrentPosition;
+                
+                curTime += timestep;
             }
 
             // Color the pixel.
