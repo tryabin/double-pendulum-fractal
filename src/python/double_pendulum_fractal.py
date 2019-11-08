@@ -1,20 +1,16 @@
-import random
 from math import *
 import numpy as np
 from PIL import Image, ImageTk
 import tkinter as tk
 import os
 import time
-
 from win32api import GetSystemMetrics
-
 from utils import read_file
 
 import pycuda.driver as drv
 import pycuda.tools
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
-
 
 
 
