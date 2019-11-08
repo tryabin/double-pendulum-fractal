@@ -1,41 +1,41 @@
 #include <stdio.h>
 #include <math.h>
 #include <math_constants.h>
-#include <point.h>
-#include <util.h>
+#include <point_double_precision.h>
+#include <util_double_precision.h>
 
 
 typedef struct PendulumState {
-    float angle1;
-    float angle2;
-    float angularVelocity1;
-    float angularVelocity2;
+    double angle1;
+    double angle2;
+    double angularVelocity1;
+    double angularVelocity2;
 } PendulumState;
 
 
 typedef struct RungeKuttaStepResults {
-    float acceleration1;
-    float acceleration2;
-    float velocity1;
-    float velocity2;
+    double acceleration1;
+    double acceleration2;
+    double velocity1;
+    double velocity2;
 } RungeKuttaStepResults;
 
 
 typedef struct AccelerationResults {
-    float acceleration1;
-    float acceleration2;
+    double acceleration1;
+    double acceleration2;
 } AccelerationResults;
 
 
 
-__device__ AccelerationResults compute_accelerations(float m1, float m2,
-                                                     float length1, float length2,
-                                                     float angle1, float angle2,
-                                                     float w1, float w2,
-                                                     float g) {
+__device__ AccelerationResults compute_accelerations(double m1, double m2,
+                                                     double length1, double length2,
+                                                     double angle1, double angle2,
+                                                     double w1, double w2,
+                                                     double g) {
                                                                 
-    float u = 1 + m1/m2;
-    float delta = angle1 - angle2;
+    double u = 1 + m1/m2;
+    double delta = angle1 - angle2;
 
     AccelerationResults results;
     results.acceleration1 = (g*(sin(angle2)*cos(delta) - u*sin(angle1)) - (length2*pow(w2, 2) + length1*pow(w1, 2)*cos(delta))*sin(delta)) / (length1*(u - pow(cos(delta), 2)));
@@ -45,24 +45,24 @@ __device__ AccelerationResults compute_accelerations(float m1, float m2,
 }
  
  
-__device__ RungeKuttaStepResults compute_rk_step(float m1, float m2,
-                                                 float length1, float length2,
-                                                 float angle1, float angle2,
-                                                 float w1, float w2,
+__device__ RungeKuttaStepResults compute_rk_step(double m1, double m2,
+                                                 double length1, double length2,
+                                                 double angle1, double angle2,
+                                                 double w1, double w2,
                                                  RungeKuttaStepResults previousRungeKuttaStepResults,
-                                                 float g,
-                                                 float timestep) {
+                                                 double g,
+                                                 double timestep) {
                                                      
                                                      
-    float newAngle1 = angle1 + timestep*previousRungeKuttaStepResults.velocity1;
-    float newAngle2 = angle2 + timestep*previousRungeKuttaStepResults.velocity2;
+    double newAngle1 = angle1 + timestep*previousRungeKuttaStepResults.velocity1;
+    double newAngle2 = angle2 + timestep*previousRungeKuttaStepResults.velocity2;
 
-    float newAngularVelocity1 = w1 + timestep*previousRungeKuttaStepResults.acceleration1;
-    float newAngularVelocity2 = w2 + timestep*previousRungeKuttaStepResults.acceleration2;
+    double newAngularVelocity1 = w1 + timestep*previousRungeKuttaStepResults.acceleration1;
+    double newAngularVelocity2 = w2 + timestep*previousRungeKuttaStepResults.acceleration2;
 
     AccelerationResults accelerationResults = compute_accelerations(m1, m2, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2, g);
-    float newVelocity1 = w1 + timestep*previousRungeKuttaStepResults.acceleration1;
-    float newVelocity2 = w2 + timestep*previousRungeKuttaStepResults.acceleration2;
+    double newVelocity1 = w1 + timestep*previousRungeKuttaStepResults.acceleration1;
+    double newVelocity2 = w2 + timestep*previousRungeKuttaStepResults.acceleration2;
 
     RungeKuttaStepResults newRungeKuttaStepResults;
     newRungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
@@ -74,12 +74,12 @@ __device__ RungeKuttaStepResults compute_rk_step(float m1, float m2,
 }        
 
 
-__device__ PendulumState compute_double_pendulum_step_rk4(float m1, float m2,
-                                                          float length1, float length2,
-                                                          float angle1, float angle2,
-                                                          float w1, float w2,
-                                                          float g,
-                                                          float timestep) {
+__device__ PendulumState compute_double_pendulum_step_rk4(double m1, double m2,
+                                                          double length1, double length2,
+                                                          double angle1, double angle2,
+                                                          double w1, double w2,
+                                                          double g,
+                                                          double timestep) {
                                                               
                                                               
     // Compute the four steps of the classical Runge-Kutta 4th order algorithm.
@@ -89,16 +89,16 @@ __device__ PendulumState compute_double_pendulum_step_rk4(float m1, float m2,
     RungeKuttaStepResults k4 = compute_rk_step(m1, m2, length1, length2, angle1, angle2, w1, w2, k3, g, timestep);
     
     // Combine the results of the Runge-Kutta steps.
-    float velocity1 = (k1.velocity1 + 2*k2.velocity1 + 2*k3.velocity1 + k4.velocity1)/6;
-    float velocity2 = (k1.velocity2 + 2*k2.velocity2 + 2*k3.velocity2 + k4.velocity2)/6;
-    float acceleration1 = (k1.acceleration1 + 2*k2.acceleration1 + 2*k3.acceleration1 + k4.acceleration1)/6;
-    float acceleration2 = (k1.acceleration2 + 2*k2.acceleration2 + 2*k3.acceleration2 + k4.acceleration2)/6;
+    double velocity1 = (k1.velocity1 + 2*k2.velocity1 + 2*k3.velocity1 + k4.velocity1)/6;
+    double velocity2 = (k1.velocity2 + 2*k2.velocity2 + 2*k3.velocity2 + k4.velocity2)/6;
+    double acceleration1 = (k1.acceleration1 + 2*k2.acceleration1 + 2*k3.acceleration1 + k4.acceleration1)/6;
+    double acceleration2 = (k1.acceleration2 + 2*k2.acceleration2 + 2*k3.acceleration2 + k4.acceleration2)/6;
     
     // Compute the new state of the pendulum.
-    float point1NewAngularVelocity = acceleration1*timestep + w1;
-    float point2NewAngularVelocity = acceleration2*timestep + w2;
-    float point1NewAngle = velocity1*timestep + angle1;
-    float point2NewAngle = velocity2*timestep + angle2;
+    double point1NewAngularVelocity = acceleration1*timestep + w1;
+    double point2NewAngularVelocity = acceleration2*timestep + w2;
+    double point1NewAngle = velocity1*timestep + angle1;
+    double point2NewAngle = velocity2*timestep + angle2;
     
     // Return the new state of the pendulum.
     PendulumState newPendulumState;
@@ -111,16 +111,16 @@ __device__ PendulumState compute_double_pendulum_step_rk4(float m1, float m2,
 }
 
 
-__global__ void compute_double_pendulum_fractal_image(float point1Mass, float point2Mass,
-                                                      float pendulum1Length, float pendulum2Length,
-                                                      float gravity,
-                                                      float angle1Min, float angle1Max,
-                                                      float angle2Min, float angle2Max,
+__global__ void compute_double_pendulum_fractal_image(double point1Mass, double point2Mass,
+                                                      double pendulum1Length, double pendulum2Length,
+                                                      double gravity,
+                                                      double angle1Min, double angle1Max,
+                                                      double angle2Min, double angle2Max,
                                                       int numberOfAnglesToTestPerKernelCallRatio,
                                                       int curKernelStartX, int curKernelStartY,
                                                       int totalNumberOfAnglesToTestX, int totalNumberOfAnglesToTestY,
-                                                      float timestep,
-                                                      float maxTimeToSeeIfPendulumFlips,
+                                                      double timestep,
+                                                      double maxTimeToSeeIfPendulumFlips,
                                                       char *colors) {
 
     int stepX = gridDim.x*blockDim.x;
@@ -135,19 +135,19 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
     int realStartY = startY*numberOfAnglesToTestPerKernelCallRatio + curKernelStartY;
 
     for (int x = realStartX; x < totalNumberOfAnglesToTestX; x += realStepX) {        
-        float angle1 = angle1Min + float(x)*(angle1Max - angle1Min)/float(totalNumberOfAnglesToTestX);
+        double angle1 = angle1Min + double(x)*(angle1Max - angle1Min)/double(totalNumberOfAnglesToTestX);
         
         for (int y = realStartY; y < totalNumberOfAnglesToTestY; y += realStepY) {    
-            float angle2 = angle2Min + float(y)*(angle2Max - angle2Min)/float(totalNumberOfAnglesToTestY);
+            double angle2 = angle2Min + double(y)*(angle2Max - angle2Min)/double(totalNumberOfAnglesToTestY);
             
             // Skip the current pendulum if it doesn't have enough initial energy to flip the first mass.
             Point point1Position = get_point_position({0,0}, angle1, pendulum1Length);
             Point point2Position = get_point_position(point1Position, angle2, pendulum2Length);
-            float potentialEnergy1 = point1Position.y*point1Mass*gravity;
-            float potentialEnergy2 = point2Position.y*point2Mass*gravity;
-            float totalPotentialEnergy = potentialEnergy1 + potentialEnergy2;
+            double potentialEnergy1 = point1Position.y*point1Mass*gravity;
+            double potentialEnergy2 = point2Position.y*point2Mass*gravity;
+            double totalPotentialEnergy = potentialEnergy1 + potentialEnergy2;
 
-            float minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity;
+            double minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity;
             if (totalPotentialEnergy < minimumEnergyNeededForFlip) {
                 continue;
             }
@@ -159,7 +159,7 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
             pendulumState.angularVelocity1 = 0;
             pendulumState.angularVelocity2 = 0;
             
-            float curTime = 0;
+            double curTime = 0;
             Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
             while (curTime < maxTimeToSeeIfPendulumFlips) {               
             
@@ -183,14 +183,14 @@ __global__ void compute_double_pendulum_fractal_image(float point1Mass, float po
             }
 
             // Color the pixel.
-            float curTimeMs = curTime*1000;
+            double curTimeMs = curTime*1000;
             int area = totalNumberOfAnglesToTestX*totalNumberOfAnglesToTestY;
             int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
             
-            float shift = .11;
-            float r = 1.0;
-            float g = 4.0;
-            float b = 7.2;
+            double shift = .11;
+            double r = 1.0;
+            double g = 4.0;
+            double b = 7.2;
             
             colors[pixelIndex] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * r * shift)) * 255;
             colors[pixelIndex+area] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * g * shift)) * 255;

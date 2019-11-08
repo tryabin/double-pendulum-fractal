@@ -19,3 +19,4 @@ __device__ float pow_fast(float x, int n) {
     
     return value;
 }
+
