@@ -128,8 +128,8 @@ class DoublePendulumFractalApp(tk.Tk):
                                                        # block=(4, 4, 1), grid=(4, 4))
                                                        # block=(8, 8, 1), grid=(8, 8))
                                                        block=(16, 16, 1), grid=(16, 16))
-                                                # block=(32, 32, 1), grid=(32, 32))
-                                                # block=(2, 2, 1), grid=(1, 1))
+                                                       # block=(32, 32, 1), grid=(32, 32))
+                                                       # block=(2, 2, 1), grid=(1, 1))
                 
                 else:
                     self.doublePendulumFractalFunction(np.float64(self.point1Mass), np.float64(self.point2Mass),
@@ -147,8 +147,8 @@ class DoublePendulumFractalApp(tk.Tk):
                                                        # block=(4, 4, 1), grid=(4, 4))
                                                        # block=(8, 8, 1), grid=(8, 8))
                                                        block=(16, 16, 1), grid=(16, 16))
-                                                # block=(32, 32, 1), grid=(32, 32))
-                                                # block=(2, 2, 1), grid=(1, 1))
+                                                       # block=(32, 32, 1), grid=(32, 32))
+                                                       # block=(2, 2, 1), grid=(1, 1))
 
 
                 colors = np.add(colors, curColors)
