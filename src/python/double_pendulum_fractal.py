@@ -39,11 +39,15 @@ class DoublePendulumFractalApp(tk.Tk):
     pendulum1Length = 1
     pendulum2Length = 1
 
-    # Initialize the kernel.
+    # Configure the floating-point precision to use.
     useDoublePrecision = False  # Enabling double precision could slow performance by 20 times or more.
-    includeDir = os.getcwd() + '/include'
-    kernelFile = 'src/cuda/double_pendulum_fractal.cu' if not useDoublePrecision else 'src/cuda/double_pendulum_fractal_double_precision.cu' 
-    doublePendulumFractalFunction = SourceModule(read_file(kernelFile), include_dirs=[includeDir]).get_function('compute_double_pendulum_fractal_image')
+    npFloatType = np.float32 if not useDoublePrecision else np.float64
+
+    # Initialize the kernel.
+    includeDir = os.getcwd() + '/src/cuda/include'
+    options = ['-DFLOAT_32'] if not useDoublePrecision else ['-DFLOAT_64']
+    kernelFile = 'src/cuda/double_pendulum_fractal.cu'
+    doublePendulumFractalFunction = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_image')
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -111,44 +115,23 @@ class DoublePendulumFractalApp(tk.Tk):
 
                 kernelStart = time.time()
                 curColors = np.zeros_like(colors)
-                
-                if not self.useDoublePrecision:
-                    self.doublePendulumFractalFunction(np.float32(self.point1Mass), np.float32(self.point2Mass),
-                                                       np.float32(self.pendulum1Length), np.float32(self.pendulum2Length),
-                                                       np.float32(self.gravity),
-                                                       np.float32(self.angle1Min), np.float32(self.angle1Max),
-                                                       np.float32(self.angle2Min), np.float32(self.angle2Max),
-                                                       np.int32(self.numberOfAnglesToTestPerKernelCallRatio),
-                                                       np.int32(i), np.int32(j),
-                                                       np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
-                                                       np.float32(self.timestep),
-                                                       np.float32(self.maxTimeToSeeIfPendulumFlips),
-                                                       drv.Out(curColors),
-                                                       # colorsGpu,
-                                                       # block=(4, 4, 1), grid=(4, 4))
-                                                       # block=(8, 8, 1), grid=(8, 8))
-                                                       block=(16, 16, 1), grid=(16, 16))
-                                                       # block=(32, 32, 1), grid=(32, 32))
-                                                       # block=(2, 2, 1), grid=(1, 1))
-                
-                else:
-                    self.doublePendulumFractalFunction(np.float64(self.point1Mass), np.float64(self.point2Mass),
-                                                       np.float64(self.pendulum1Length), np.float64(self.pendulum2Length),
-                                                       np.float64(self.gravity),
-                                                       np.float64(self.angle1Min), np.float64(self.angle1Max),
-                                                       np.float64(self.angle2Min), np.float64(self.angle2Max),
-                                                       np.int32(self.numberOfAnglesToTestPerKernelCallRatio),
-                                                       np.int32(i), np.int32(j),
-                                                       np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
-                                                       np.float64(self.timestep),
-                                                       np.float64(self.maxTimeToSeeIfPendulumFlips),
-                                                       drv.Out(curColors),
-                                                       # colorsGpu,
-                                                       # block=(4, 4, 1), grid=(4, 4))
-                                                       # block=(8, 8, 1), grid=(8, 8))
-                                                       block=(16, 16, 1), grid=(16, 16))
-                                                       # block=(32, 32, 1), grid=(32, 32))
-                                                       # block=(2, 2, 1), grid=(1, 1))
+
+                self.doublePendulumFractalFunction(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
+                                                   self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
+                                                   self.npFloatType(self.gravity),
+                                                   self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                   self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                   np.int32(self.numberOfAnglesToTestPerKernelCallRatio),
+                                                   np.int32(i), np.int32(j),
+                                                   np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                   self.npFloatType(self.timestep),
+                                                   self.npFloatType(self.maxTimeToSeeIfPendulumFlips),
+                                                   drv.Out(curColors),
+                                                   # block=(4, 4, 1), grid=(4, 4))
+                                                   # block=(8, 8, 1), grid=(8, 8))
+                                                   block=(16, 16, 1), grid=(16, 16))
+                                                   # block=(32, 32, 1), grid=(32, 32))
+                                                   # block=(2, 2, 1), grid=(1, 1))
 
 
                 colors = np.add(colors, curColors)
@@ -166,11 +149,11 @@ class DoublePendulumFractalApp(tk.Tk):
         blueArray = Image.fromarray(colors[2])
 
         pilImageRGB = Image.merge('RGB', (redArray, greenArray, blueArray))
-        img = ImageTk.PhotoImage(pilImageRGB)
-        self.canvas.create_image((self.numberOfAnglesToTestX / 2, self.numberOfAnglesToTestY / 2), image=img, state="normal")
+        image = ImageTk.PhotoImage(pilImageRGB)
+        self.canvas.create_image((self.numberOfAnglesToTestX / 2, self.numberOfAnglesToTestY / 2), image=image, state="normal")
 
         # Save the image so it isn't garbage collected.
-        self.image = img
+        self.image = image
 
         # Save the image to a file.
         filename = "double pendulum fractal.png"

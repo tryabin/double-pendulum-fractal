@@ -1,9 +1,11 @@
 #ifndef POINT_H
 #define POINT_H
 
+#include <float_type.h>
+
 typedef struct Point {
-    float x;
-    float y;
+    FloatType x;
+    FloatType y;
 } Point;
 
 #endif
