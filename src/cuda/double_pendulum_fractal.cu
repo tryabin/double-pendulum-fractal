@@ -122,6 +122,7 @@ __global__ void compute_double_pendulum_fractal_image(FloatType point1Mass, Floa
                                                       int totalNumberOfAnglesToTestX, int totalNumberOfAnglesToTestY,
                                                       FloatType timestep,
                                                       FloatType maxTimeToSeeIfPendulumFlips,
+                                                      int antiAliasingGridWidth,
                                                       char *colors) {
 
     int stepX = gridDim.x*blockDim.x;
@@ -135,67 +136,81 @@ __global__ void compute_double_pendulum_fractal_image(FloatType point1Mass, Floa
     int realStartX = startX*numberOfAnglesToTestPerKernelCallRatio + curKernelStartX;
     int realStartY = startY*numberOfAnglesToTestPerKernelCallRatio + curKernelStartY;
 
+    // Pre-compute reused values.
+    FloatType distanceBetweenSamples = ((angle1Max - angle1Min) / totalNumberOfAnglesToTestX)/antiAliasingGridWidth;
+    FloatType pixelWidth = (angle1Max - angle1Min)/totalNumberOfAnglesToTestX;
+    int maxNumberOfTimestepsToSeeIfPendulumFlips = lroundf(maxTimeToSeeIfPendulumFlips / timestep);
+    
+    // Simulated the double pendulums.
     for (int x = realStartX; x < totalNumberOfAnglesToTestX; x += realStepX) {        
-        FloatType angle1 = angle1Min + FloatType(x)*(angle1Max - angle1Min)/FloatType(totalNumberOfAnglesToTestX - 1);
-        
         for (int y = realStartY; y < totalNumberOfAnglesToTestY; y += realStepY) {    
+            FloatType angle1 = angle1Min + FloatType(x)*(angle1Max - angle1Min)/FloatType(totalNumberOfAnglesToTestX - 1);
             FloatType angle2 = angle2Min + FloatType(y)*(angle2Max - angle2Min)/FloatType(totalNumberOfAnglesToTestY - 1);
             
-            // Skip the current pendulum if it doesn't have enough initial energy to flip the first mass.
-            Point point1Position = get_point_position({0,0}, angle1, pendulum1Length);
-            Point point2Position = get_point_position(point1Position, angle2, pendulum2Length);
-            FloatType potentialEnergy1 = point1Position.y*point1Mass*gravity;
-            FloatType potentialEnergy2 = point2Position.y*point2Mass*gravity;
-            FloatType totalPotentialEnergy = potentialEnergy1 + potentialEnergy2;
+            // Perform grid-based supersampling anti-aliasing.
+            FloatType colorValues[] = {0, 0, 0};
+            for (int i = 0; i < antiAliasingGridWidth; i++) {
+                for (int j = 0; j < antiAliasingGridWidth; j++) {
+                    FloatType angle1Sample = distanceBetweenSamples*(.5 + FloatType(i)) + angle1 - pixelWidth/2;
+                    FloatType angle2Sample = distanceBetweenSamples*(.5 + FloatType(j)) + angle2 - pixelWidth/2;    
+                     
+                    // Skip the current pendulum if it doesn't have enough initial energy to flip the first mass.
+                    Point point1Position = get_point_position({0,0}, angle1Sample, pendulum1Length);
+                    Point point2Position = get_point_position(point1Position, angle2Sample, pendulum2Length);
+                    FloatType potentialEnergy1 = point1Position.y*point1Mass*gravity;
+                    FloatType potentialEnergy2 = point2Position.y*point2Mass*gravity;
+                    FloatType totalPotentialEnergy = potentialEnergy1 + potentialEnergy2;
 
-            FloatType minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity;
-            if (totalPotentialEnergy < minimumEnergyNeededForFlip) {
-                continue;
-            }
+                    FloatType minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity;
+                    if (totalPotentialEnergy < minimumEnergyNeededForFlip) {
+                        continue;
+                    }
 
-            // Simulate the pendulum.
-            PendulumState pendulumState;
-            pendulumState.angle1 = angle1;
-            pendulumState.angle2 = angle2;
-            pendulumState.angularVelocity1 = 0;
-            pendulumState.angularVelocity2 = 0;
-            
-            FloatType curTime = 0;
-            Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
-            while (curTime < maxTimeToSeeIfPendulumFlips) {               
-            
-                pendulumState = compute_double_pendulum_step_rk4(point1Mass, point2Mass,
-                                                                 pendulum1Length, pendulum2Length,
-                                                                 pendulumState.angle1, pendulumState.angle2,
-                                                                 pendulumState.angularVelocity1, pendulumState.angularVelocity2,
-                                                                 gravity,
-                                                                 timestep);
-                
-                
-                
-                // Check to see if the first mass flipped. 
-                Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);                
-                if (point1CurrentPosition.x*point1OriginalPosition.x < 0 && point1CurrentPosition.y > 0) {
-                    break;
+                    // Simulate the pendulum until it flips or time runs out.
+                    PendulumState pendulumState;
+                    pendulumState.angle1 = angle1Sample;
+                    pendulumState.angle2 = angle2Sample;
+                    pendulumState.angularVelocity1 = 0;
+                    pendulumState.angularVelocity2 = 0;
+ 
+                    Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
+                    int numberOfTimestepsExecuted = 0;  
+                    while (numberOfTimestepsExecuted < maxNumberOfTimestepsToSeeIfPendulumFlips) {                      
+                    
+                        pendulumState = compute_double_pendulum_step_rk4(point1Mass, point2Mass,
+                                                                         pendulum1Length, pendulum2Length,
+                                                                         pendulumState.angle1, pendulumState.angle2,
+                                                                         pendulumState.angularVelocity1, pendulumState.angularVelocity2,
+                                                                         gravity,
+                                                                         timestep);
+                        
+                        // Check to see if the first mass flipped. 
+                        Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);                
+                        if (point1CurrentPosition.x*point1OriginalPosition.x < 0 && point1CurrentPosition.y > 0) {
+                            break;
+                        }
+                        point1OriginalPosition = point1CurrentPosition;
+        
+                        numberOfTimestepsExecuted++;
+                    }
+                    
+
+                    // Compute the color of the sample. Color it black if the pendulum did not flip.
+                    FloatType timeTillFlipMs = numberOfTimestepsExecuted < maxNumberOfTimestepsToSeeIfPendulumFlips ? FloatType(numberOfTimestepsExecuted)*timestep*1000 : 0;
+                    FloatType shift = .11;
+                    FloatType colorScales[] = {1.0, 4.0, 7.2};
+                    for (int k = 0; k < 3; k++) {
+                        colorValues[k] += abs(sin(1.0/255 * CUDART_PI_F * timeTillFlipMs * colorScales[k] * shift)) * 255;
+                    }
                 }
-                point1OriginalPosition = point1CurrentPosition;
-                
-                curTime += timestep;
             }
-
-            // Color the pixel.
-            FloatType curTimeMs = curTime*1000;
+            
+            // Set the color of the pixel to be the average color of the samples.
             int area = totalNumberOfAnglesToTestX*totalNumberOfAnglesToTestY;
-            int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
-            
-            FloatType shift = .11;
-            FloatType r = 1.0;
-            FloatType g = 4.0;
-            FloatType b = 7.2;
-            
-            colors[pixelIndex] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * r * shift)) * 255;
-            colors[pixelIndex+area] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * g * shift)) * 255;
-            colors[pixelIndex+2*area] = abs(sin(1.0/255 * CUDART_PI_F * curTimeMs * b * shift)) * 255;
+            int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;            
+            for (int i = 0; i < 3; i++) {
+                colors[pixelIndex + i*area] = lroundf(colorValues[i] / pow_fast(antiAliasingGridWidth, 2));
+            }
         }
     }
 }

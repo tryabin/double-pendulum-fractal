@@ -24,7 +24,7 @@ class DoublePendulumFractalApp(tk.Tk):
 
     # Number of pixels for the X and Y axes.
     numberOfAnglesToTestX = int(500 / 2**0)
-    numberOfAnglesToTestY = int(1000 / 2**0)
+    numberOfAnglesToTestY = round(numberOfAnglesToTestX * (angle2Max - angle2Min)/(angle1Max - angle1Min))
 
     # Simulation parameters.
     timestep = .001
@@ -42,6 +42,12 @@ class DoublePendulumFractalApp(tk.Tk):
     # Configure the floating-point precision to use.
     useDoublePrecision = False  # Enabling double precision could slow performance by 20 times or more.
     npFloatType = np.float32 if not useDoublePrecision else np.float64
+
+    # Width of the grid to use when doing supersampling anti-aliasing.
+    # 1 means no anti-aliasing.
+    # 2 means four total samples are used.
+    # 3 means nine total samples are used, etc.
+    antiAliasingGridWidth = 1
 
     # Initialize the kernel.
     includeDir = os.getcwd() + '/src/cuda/include'
@@ -126,6 +132,7 @@ class DoublePendulumFractalApp(tk.Tk):
                                                    np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
                                                    self.npFloatType(self.timestep),
                                                    self.npFloatType(self.maxTimeToSeeIfPendulumFlips),
+                                                   np.int32(self.antiAliasingGridWidth),
                                                    drv.Out(curColors),
                                                    # block=(4, 4, 1), grid=(4, 4))
                                                    # block=(8, 8, 1), grid=(8, 8))
