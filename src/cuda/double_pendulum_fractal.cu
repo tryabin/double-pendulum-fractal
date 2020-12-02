@@ -54,7 +54,6 @@ __device__ RungeKuttaStepResults compute_rk_step(FloatType m1, FloatType m2,
                                                  FloatType g,
                                                  FloatType timestep) {
                                                      
-                                                     
     FloatType newAngle1 = angle1 + timestep*previousRungeKuttaStepResults.velocity1;
     FloatType newAngle2 = angle2 + timestep*previousRungeKuttaStepResults.velocity2;
 
@@ -81,7 +80,6 @@ __device__ PendulumState compute_double_pendulum_step_rk4(FloatType m1, FloatTyp
                                                           FloatType w1, FloatType w2,
                                                           FloatType g,
                                                           FloatType timestep) {
-                                                              
                                                               
     // Compute the four steps of the classical Runge-Kutta 4th order algorithm.
     RungeKuttaStepResults k1 = compute_rk_step(m1, m2, length1, length2, angle1, angle2, w1, w2, {0, 0, 0, 0}, g, timestep/2);
@@ -141,7 +139,7 @@ __global__ void compute_double_pendulum_fractal_image(FloatType point1Mass, Floa
     FloatType pixelWidth = (angle1Max - angle1Min)/totalNumberOfAnglesToTestX;
     int maxNumberOfTimestepsToSeeIfPendulumFlips = lroundf(maxTimeToSeeIfPendulumFlips / timestep);
     
-    // Simulated the double pendulums.
+    // Simulate the double pendulums.
     for (int x = realStartX; x < totalNumberOfAnglesToTestX; x += realStepX) {        
         for (int y = realStartY; y < totalNumberOfAnglesToTestY; y += realStepY) {    
             FloatType angle1 = angle1Min + FloatType(x)*(angle1Max - angle1Min)/FloatType(totalNumberOfAnglesToTestX - 1);
@@ -194,7 +192,6 @@ __global__ void compute_double_pendulum_fractal_image(FloatType point1Mass, Floa
                         numberOfTimestepsExecuted++;
                     }
                     
-
                     // Compute the color of the sample. Color it black if the pendulum did not flip.
                     FloatType timeTillFlipMs = numberOfTimestepsExecuted < maxNumberOfTimestepsToSeeIfPendulumFlips ? FloatType(numberOfTimestepsExecuted)*timestep*1000 : 0;
                     FloatType shift = .11;
