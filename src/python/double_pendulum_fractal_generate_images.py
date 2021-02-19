@@ -23,7 +23,7 @@ class GenerateDoublePendulumFractalImages:
         logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
 
         # Initialize the simulator.
-        deviceNumberToUse = 1
+        deviceNumberToUse = 0
         useDoublePrecision = False
         self.simulator = DoublePendulumCudaSimulator(deviceNumberToUse, self.directoryToSaveData, useDoublePrecision)
 
@@ -38,13 +38,13 @@ class GenerateDoublePendulumFractalImages:
         # self.simulator.set_angle2_max(1.925992646191392)
 
         # The width of the image in pixels.
-        self.simulator.set_image_width_pixels(int(4000/2**0))
+        self.simulator.set_image_width_pixels(int(1000/2**0))
 
         # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
         # 1 means no anti-aliasing.
         # 2 means four total samples are used per pixel.
         # 3 means nine total samples are used per pixel, etc.
-        self.simulator.set_anti_aliasing_amount(3)
+        self.simulator.set_anti_aliasing_amount(2)
 
         # Simulation parameters.
         self.simulator.set_time_step(.01/2**2)

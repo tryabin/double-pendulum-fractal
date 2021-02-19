@@ -15,11 +15,11 @@ from utils import save_image_to_file
 logger = logging.getLogger('root')
 
 class DoublePendulumFractalApp(tk.Tk):
-    # Control parameters.
+    # UI control parameters.
     zoomFactor = 2
     maxTimeToSeeIfPendulumFlipsChangeFactor = 2
     timeStepFactor = 2
-    maxTimeToSeeIfPendulumFlipsSeconds = 2**5
+    maxTimeToSeeIfPendulumFlipsSeconds = 2**6
 
     def __init__(self):
         tk.Tk.__init__(self)
