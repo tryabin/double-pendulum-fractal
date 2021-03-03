@@ -34,7 +34,6 @@ class DoublePendulumCudaSimulator:
         self.logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
         logger.info('GPU being used: ' + self.device.name())
 
-
         # Initialize the kernels.
         includeDir = os.getcwd() + '/src/cuda/include'
         kernelFile = 'src/cuda/double_pendulum_fractal.cu'
