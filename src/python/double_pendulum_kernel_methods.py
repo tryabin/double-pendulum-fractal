@@ -28,10 +28,10 @@ class DoublePendulumCudaSimulator:
 
         # Initialize the logger.
         self.directoryToSaveData = directoryToSaveData
-        # self.logger = logging.getLogger(__name__)
-        # self.logger.setLevel(logging.DEBUG)
-        # self.logger.addHandler(logging.StreamHandler(sys.stdout))
-        # self.logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.addHandler(logging.StreamHandler(sys.stdout))
+        self.logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
         logger.info('GPU being used: ' + self.device.name())
 
 
