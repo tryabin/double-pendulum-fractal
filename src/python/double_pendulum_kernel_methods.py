@@ -37,7 +37,13 @@ class DoublePendulumCudaSimulator:
         # Initialize the kernels.
         includeDir = os.getcwd() + '/src/cuda/include'
         kernelFile = 'src/cuda/double_pendulum_fractal.cu'
-        options = ['-DFLOAT_32'] if not useDoublePrecision else ['-DFLOAT_64']
+
+        # Configure the options to send to the nvcc compiler.
+        options = ['-DFLOAT_64'] if useDoublePrecision else ['-DFLOAT_32']
+        if useDoublePrecision:
+            options.append('-maxrregcount=78')
+        logger.info('options = ' + str(options))
+
         self.npFloatType = np.float32 if not useDoublePrecision else np.float64
         self.computeDoublePendulumFractalFromInitialStatesFunction = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
         self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
@@ -117,7 +123,7 @@ class DoublePendulumCudaSimulator:
                                                                    block=(16, 16, 1), grid=(16, 16))
                                                                    # block=(32, 32, 1), grid=(32, 32))
 
-        # Print the time it took.
+        # Print the time it took to run the kernel.
         timeToExecuteLastKernel = time.time() - kernelStart
         logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
 

@@ -28,93 +28,92 @@ typedef struct AccelerationResults {
 } AccelerationResults;
 
 
-enum PendulumFlipStatus {NotEnoughEnergy = -1, DidNotFlip = -2};
+enum PendulumFlipStatus {NotEnoughEnergyToFlip = -1, DidNotFlip = -2};
 
 
-__device__ AccelerationResults compute_accelerations(FloatType m1, FloatType m2,
+__device__ AccelerationResults compute_accelerations(PendulumState pendulumState,
+                                                     FloatType m1, FloatType m2, FloatType u,
                                                      FloatType length1, FloatType length2,
-                                                     FloatType angle1, FloatType angle2,
-                                                     FloatType w1, FloatType w2,
                                                      FloatType g) {
-                                                                
-    FloatType u = 1 + m1/m2;
-    FloatType delta = angle1 - angle2;
 
+    // Store calculations done multiple times in variables.
+    FloatType delta = pendulumState.angle1 - pendulumState.angle2;
+    FloatType sinDelta = sin(delta);
+    FloatType cosDelta = cos(delta);
+    FloatType sinAngle1 = sin(pendulumState.angle1);
+    FloatType sinAngle2 = sin(pendulumState.angle2);
+    FloatType angularVelocity1Squared = pendulumState.angularVelocity1*pendulumState.angularVelocity1;
+    FloatType angularVelocity2Squared = pendulumState.angularVelocity2*pendulumState.angularVelocity2;
+    FloatType uMinusCosDeltaSquared = u - (cosDelta*cosDelta);
+
+    // Compute the accelerations.
     AccelerationResults results;
-    results.acceleration1 = (g*(sin(angle2)*cos(delta) - u*sin(angle1)) - (length2*pow(w2, 2) + length1*pow(w1, 2)*cos(delta))*sin(delta)) / (length1*(u - pow(cos(delta), 2)));
-    results.acceleration2 = (g*u*(sin(angle1)*cos(delta) - sin(angle2)) + (u*length1*pow(w1, 2) + length2*pow(w2, 2)*cos(delta))*sin(delta)) / (length2*(u - pow(cos(delta), 2)));
+    results.acceleration1 = (g*(sinAngle2*cosDelta - u*sinAngle1) - (length2*angularVelocity2Squared + length1*angularVelocity1Squared*cosDelta)*sinDelta) / (length1*uMinusCosDeltaSquared);
+    results.acceleration2 = (g*u*(sinAngle1*cosDelta - sinAngle2) + (u*length1*angularVelocity1Squared + length2*angularVelocity2Squared*cosDelta)*sinDelta) / (length2*uMinusCosDeltaSquared);
 
     return results;
 }
- 
- 
-__device__ RungeKuttaStepResults compute_rk_step(FloatType m1, FloatType m2,
-                                                 FloatType length1, FloatType length2,
-                                                 FloatType angle1, FloatType angle2,
-                                                 FloatType w1, FloatType w2,
+
+
+__device__ RungeKuttaStepResults compute_rk_step(PendulumState pendulumState,
                                                  RungeKuttaStepResults previousRungeKuttaStepResults,
+                                                 FloatType m1, FloatType m2, FloatType u,
+                                                 FloatType length1, FloatType length2,
                                                  FloatType g,
                                                  FloatType timeStep) {
-                                                     
-    FloatType newAngle1 = angle1 + timeStep*previousRungeKuttaStepResults.velocity1;
-    FloatType newAngle2 = angle2 + timeStep*previousRungeKuttaStepResults.velocity2;
 
-    FloatType newAngularVelocity1 = w1 + timeStep*previousRungeKuttaStepResults.acceleration1;
-    FloatType newAngularVelocity2 = w2 + timeStep*previousRungeKuttaStepResults.acceleration2;
+    PendulumState newPendulumState;
+    newPendulumState.angle1 = pendulumState.angle1 + timeStep*previousRungeKuttaStepResults.velocity1;
+    newPendulumState.angle2 = pendulumState.angle2 + timeStep*previousRungeKuttaStepResults.velocity2;
+    newPendulumState.angularVelocity1 = pendulumState.angularVelocity1 + timeStep*previousRungeKuttaStepResults.acceleration1;
+    newPendulumState.angularVelocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
-    AccelerationResults accelerationResults = compute_accelerations(m1, m2, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2, g);
-    FloatType newVelocity1 = w1 + timeStep*previousRungeKuttaStepResults.acceleration1;
-    FloatType newVelocity2 = w2 + timeStep*previousRungeKuttaStepResults.acceleration2;
+    AccelerationResults accelerationResults = compute_accelerations(newPendulumState, m1, m2, u, length1, length2, g);
+    FloatType newVelocity1 = pendulumState.angularVelocity1 + timeStep*previousRungeKuttaStepResults.acceleration1;
+    FloatType newVelocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
     RungeKuttaStepResults newRungeKuttaStepResults;
     newRungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
     newRungeKuttaStepResults.acceleration2 = accelerationResults.acceleration2;
     newRungeKuttaStepResults.velocity1 = newVelocity1;
     newRungeKuttaStepResults.velocity2 = newVelocity2;
-    
+
     return newRungeKuttaStepResults;
-}        
+}
 
 
-__device__ PendulumState compute_double_pendulum_step_rk4(FloatType m1, FloatType m2,
+__device__ PendulumState compute_double_pendulum_step_rk4(PendulumState pendulumState,
+                                                          FloatType m1, FloatType m2, FloatType u,
                                                           FloatType length1, FloatType length2,
-                                                          FloatType angle1, FloatType angle2,
-                                                          FloatType w1, FloatType w2,
                                                           FloatType g,
                                                           FloatType timeStep) {
-                                                              
+
     // Compute the four steps of the classical Runge-Kutta 4th order algorithm.
-    RungeKuttaStepResults k1 = compute_rk_step(m1, m2, length1, length2, angle1, angle2, w1, w2, {0, 0, 0, 0}, g, timeStep/2);
-    RungeKuttaStepResults k2 = compute_rk_step(m1, m2, length1, length2, angle1, angle2, w1, w2, k1, g, timeStep/2);
-    RungeKuttaStepResults k3 = compute_rk_step(m1, m2, length1, length2, angle1, angle2, w1, w2, k2, g, timeStep/2);
-    RungeKuttaStepResults k4 = compute_rk_step(m1, m2, length1, length2, angle1, angle2, w1, w2, k3, g, timeStep);
-    
+    RungeKuttaStepResults k1 = compute_rk_step(pendulumState, {0, 0, 0, 0}, m1, m2, u, length1, length2, g, timeStep/2);
+    RungeKuttaStepResults k2 = compute_rk_step(pendulumState, k1, m1, m2, u, length1, length2, g, timeStep/2);
+    RungeKuttaStepResults k3 = compute_rk_step(pendulumState, k2, m1, m2, u, length1, length2, g, timeStep/2);
+    RungeKuttaStepResults k4 = compute_rk_step(pendulumState, k3, m1, m2, u, length1, length2, g, timeStep);
+
     // Combine the results of the Runge-Kutta steps.
     FloatType velocity1 = (k1.velocity1 + 2*k2.velocity1 + 2*k3.velocity1 + k4.velocity1)/6;
     FloatType velocity2 = (k1.velocity2 + 2*k2.velocity2 + 2*k3.velocity2 + k4.velocity2)/6;
     FloatType acceleration1 = (k1.acceleration1 + 2*k2.acceleration1 + 2*k3.acceleration1 + k4.acceleration1)/6;
     FloatType acceleration2 = (k1.acceleration2 + 2*k2.acceleration2 + 2*k3.acceleration2 + k4.acceleration2)/6;
-    
+
     // Compute the new state of the pendulum.
-    FloatType point1NewAngularVelocity = acceleration1*timeStep + w1;
-    FloatType point2NewAngularVelocity = acceleration2*timeStep + w2;
-    FloatType point1NewAngle = velocity1*timeStep + angle1;
-    FloatType point2NewAngle = velocity2*timeStep + angle2;
-    
-    // Return the new state of the pendulum.
     PendulumState newPendulumState;
-    newPendulumState.angle1 = point1NewAngle;
-    newPendulumState.angle2 = point2NewAngle;
-    newPendulumState.angularVelocity1 = point1NewAngularVelocity;
-    newPendulumState.angularVelocity2 = point2NewAngularVelocity;
-    
+    newPendulumState.angle1 = velocity1*timeStep + pendulumState.angle1;
+    newPendulumState.angle2 = velocity2*timeStep + pendulumState.angle2;
+    newPendulumState.angularVelocity1 = acceleration1*timeStep + pendulumState.angularVelocity1;
+    newPendulumState.angularVelocity2 = acceleration2*timeStep + pendulumState.angularVelocity2;
+
     return newPendulumState;
 }
 
 
-__global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_states(FloatType point1Mass, FloatType point2Mass,
-                                                                                    FloatType pendulum1Length, FloatType pendulum2Length,
-                                                                                    FloatType gravity,
+__global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_states(FloatType m1, FloatType m2,
+                                                                                    FloatType length1, FloatType length2,
+                                                                                    FloatType g,
                                                                                     FloatType angle1Min, FloatType angle1Max,
                                                                                     FloatType angle2Min, FloatType angle2Max,
                                                                                     PendulumState *pendulumStates,
@@ -130,6 +129,9 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
 
     int startX = threadIdx.x + blockDim.x*blockIdx.x;
     int startY = threadIdx.y + blockDim.y*blockIdx.y;
+
+    // Pre-compute a commonly used value.
+    FloatType u = 1 + m1/m2;
 
     // Simulate the double pendulums.
     for (int x = startX; x < totalNumberOfAnglesToTestX; x += stepX) {
@@ -155,42 +157,37 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
             // If not given initial states, skip the current pendulum if it doesn't have enough initial energy to
             // flip the first mass.
             if (startFromDefaultState) {
-                Point point1Position = get_point_position({0,0}, initialPendulumState.angle1, pendulum1Length);
-                Point point2Position = get_point_position(point1Position, initialPendulumState.angle2, pendulum2Length);
-                FloatType potentialEnergy1 = point1Position.y*point1Mass*gravity;
-                FloatType potentialEnergy2 = point2Position.y*point2Mass*gravity;
+                Point point1Position = get_point_position({0,0}, initialPendulumState.angle1, length1);
+                Point point2Position = get_point_position(point1Position, initialPendulumState.angle2, length2);
+                FloatType potentialEnergy1 = point1Position.y*m1*g;
+                FloatType potentialEnergy2 = point2Position.y*m2*g;
                 FloatType totalPotentialEnergy = potentialEnergy1 + potentialEnergy2;
 
-                FloatType minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity;
+                FloatType minimumEnergyNeededForFlip = m1*length1*g + m2*(length1 - length2)*g;
                 if (totalPotentialEnergy < minimumEnergyNeededForFlip) {
-                    numTimeStepsTillFlip[pixelIndex] = NotEnoughEnergy;
+                    numTimeStepsTillFlip[pixelIndex] = NotEnoughEnergyToFlip;
                     continue;
                 }
             }
 
             // Otherwise skip the pendulum if the number of current time steps at the current pendulum is -1, indicating
             // it originally didn't have enough energy to flip, or the pendulum already flipped.
-            else if (numTimeStepsTillFlip[pixelIndex] == NotEnoughEnergy ||
+            else if (numTimeStepsTillFlip[pixelIndex] == NotEnoughEnergyToFlip ||
                      numTimeStepsTillFlip[pixelIndex] != DidNotFlip) {
                 continue;
             }
 
             // Simulate the pendulum until it flips or time runs out.
             PendulumState pendulumState = initialPendulumState;
-            Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
+            Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, length1);
             int numberOfTimeStepsExecuted = numberOfTimeStepsAlreadyExecuted;
             bool pendulumFlipped = false;
             while (numberOfTimeStepsExecuted < maxNumberOfTimeStepsToSeeIfPendulumFlips) {
-                pendulumState = compute_double_pendulum_step_rk4(point1Mass, point2Mass,
-                                                                 pendulum1Length, pendulum2Length,
-                                                                 pendulumState.angle1, pendulumState.angle2,
-                                                                 pendulumState.angularVelocity1, pendulumState.angularVelocity2,
-                                                                 gravity,
-                                                                 timeStep);
+                pendulumState = compute_double_pendulum_step_rk4(pendulumState, m1, m2, u, length1, length2, g, timeStep);
                 numberOfTimeStepsExecuted++;
 
                 // Check to see if the first mass flipped.
-                Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, pendulum1Length);
+                Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, length1);
                 if (point1CurrentPosition.x*point1OriginalPosition.x < 0 && point1CurrentPosition.y > 0) {
                     pendulumFlipped = true;
                     break;
@@ -234,7 +231,7 @@ __global__ void compute_colors_from_steps_till_flip(int *numTimeStepsTillFlip,
 
             // Compute the color of the sample. Color it black if the pendulum did not flip.
             FloatType timeTillFlipMs = FloatType(timeStepsTillFlip)*timeStep*1000.0;
-            if (timeStepsTillFlip == NotEnoughEnergy || timeStepsTillFlip == DidNotFlip) {
+            if (timeStepsTillFlip == NotEnoughEnergyToFlip || timeStepsTillFlip == DidNotFlip) {
                 timeTillFlipMs = 0;
             }
             for (int i = 0; i < 3; i++) {
