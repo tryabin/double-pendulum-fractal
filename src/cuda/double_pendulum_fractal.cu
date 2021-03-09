@@ -69,14 +69,12 @@ __device__ RungeKuttaStepResults compute_rk_step(PendulumState pendulumState,
     newPendulumState.angularVelocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
     AccelerationResults accelerationResults = compute_accelerations(newPendulumState, m1, m2, u, length1, length2, g);
-    FloatType newVelocity1 = pendulumState.angularVelocity1 + timeStep*previousRungeKuttaStepResults.acceleration1;
-    FloatType newVelocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
     RungeKuttaStepResults newRungeKuttaStepResults;
     newRungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
     newRungeKuttaStepResults.acceleration2 = accelerationResults.acceleration2;
-    newRungeKuttaStepResults.velocity1 = newVelocity1;
-    newRungeKuttaStepResults.velocity2 = newVelocity2;
+    newRungeKuttaStepResults.velocity1 = pendulumState.angularVelocity1 + timeStep*previousRungeKuttaStepResults.acceleration1;
+    newRungeKuttaStepResults.velocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
     return newRungeKuttaStepResults;
 }
@@ -179,20 +177,20 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
 
             // Simulate the pendulum until it flips or time runs out.
             PendulumState pendulumState = initialPendulumState;
-            Point point1OriginalPosition = get_point_position({0,0}, pendulumState.angle1, length1);
+            FloatType originalAngle1 = pendulumState.angle1;
             int numberOfTimeStepsExecuted = numberOfTimeStepsAlreadyExecuted;
             bool pendulumFlipped = false;
             while (numberOfTimeStepsExecuted < maxNumberOfTimeStepsToSeeIfPendulumFlips) {
+                // Compute one time step of the pendulum simulation.
                 pendulumState = compute_double_pendulum_step_rk4(pendulumState, m1, m2, u, length1, length2, g, timeStep);
                 numberOfTimeStepsExecuted++;
 
                 // Check to see if the first mass flipped.
-                Point point1CurrentPosition = get_point_position({0,0}, pendulumState.angle1, length1);
-                if (point1CurrentPosition.x*point1OriginalPosition.x < 0 && point1CurrentPosition.y > 0) {
+                if (floorf((pendulumState.angle1 - PI) / TAU) != floorf((originalAngle1 - PI) / TAU)) {
                     pendulumFlipped = true;
                     break;
                 }
-                point1OriginalPosition = point1CurrentPosition;
+                originalAngle1 = pendulumState.angle1;
             }
 
             // Set the new number of time steps for the pendulum to flip, and the new pendulum state.
@@ -235,7 +233,7 @@ __global__ void compute_colors_from_steps_till_flip(int *numTimeStepsTillFlip,
                 timeTillFlipMs = 0;
             }
             for (int i = 0; i < 3; i++) {
-                colors[pixelIndex + i*area] = lroundf(abs(sin(1.0/255 * CUDART_PI_F * timeTillFlipMs * colorScales[i] * shift)) * 255);
+                colors[pixelIndex + i*area] = lroundf(abs(sin(1.0/255 * PI * timeTillFlipMs * colorScales[i] * shift)) * 255);
             }
         }
     }
