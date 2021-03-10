@@ -4,7 +4,6 @@
 #else
    typedef double FloatType;
    #define PI CUDART_PI
+#endif
 
 #define TAU (2*PI)
-
-#endif

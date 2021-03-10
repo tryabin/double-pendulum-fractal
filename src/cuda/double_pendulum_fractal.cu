@@ -36,10 +36,11 @@ __device__ AccelerationResults compute_accelerations(PendulumState pendulumState
                                                      FloatType length1, FloatType length2,
                                                      FloatType g) {
 
-    // Store calculations done multiple times in variables.
+    // Store calculations done multiple times in variables for performance.
     FloatType delta = pendulumState.angle1 - pendulumState.angle2;
-    FloatType sinDelta = sin(delta);
-    FloatType cosDelta = cos(delta);
+    FloatType sinDelta;
+    FloatType cosDelta;
+    sincos(delta, &sinDelta, &cosDelta);
     FloatType sinAngle1 = sin(pendulumState.angle1);
     FloatType sinAngle2 = sin(pendulumState.angle2);
     FloatType angularVelocity1Squared = pendulumState.angularVelocity1*pendulumState.angularVelocity1;
@@ -186,7 +187,7 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
                 numberOfTimeStepsExecuted++;
 
                 // Check to see if the first mass flipped.
-                if (floorf((pendulumState.angle1 - PI) / TAU) != floorf((originalAngle1 - PI) / TAU)) {
+                if (floor((pendulumState.angle1 - PI) / TAU) != floor((originalAngle1 - PI) / TAU)) {
                     pendulumFlipped = true;
                     break;
                 }

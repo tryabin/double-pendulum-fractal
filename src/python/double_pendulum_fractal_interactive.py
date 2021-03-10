@@ -21,6 +21,10 @@ class DoublePendulumFractalApp(tk.Tk):
     timeStepFactor = 2
     maxTimeToSeeIfPendulumFlipsSeconds = 2**6
 
+    # Other parameters.
+    deviceNumberToUse = 0  # The GPU to use to run the simulation.
+    useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
+
     def __init__(self):
         tk.Tk.__init__(self)
 
@@ -33,9 +37,7 @@ class DoublePendulumFractalApp(tk.Tk):
         logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log', mode='w'))
 
         # Initialize the simulator.
-        deviceNumberToUse = 0 # Determines which GPU is used to run the simulation.
-        useDoublePrecision = False
-        self.simulator = DoublePendulumCudaSimulator(deviceNumberToUse, self.directoryToSaveData, useDoublePrecision)
+        self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision)
 
         # The range of pendulum angles.
         self.simulator.set_angle1_min(-3/2*pi)

@@ -20,7 +20,7 @@ class DoublePendulumCudaSimulator:
     # 3 means nine total samples are used per pixel, etc.
     antiAliasingAmount = 1
 
-    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision):
+    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, maxRegistersToUse=78):
         # Initialize the CUDA driver.
         cuda.init()
         self.device = cuda.Device(deviceNumberToUse)
@@ -41,7 +41,7 @@ class DoublePendulumCudaSimulator:
         # Configure the options to send to the nvcc compiler.
         options = ['-DFLOAT_64'] if useDoublePrecision else ['-DFLOAT_32']
         if useDoublePrecision:
-            options.append('-maxrregcount=78')
+            options.append('-maxrregcount=' + str(maxRegistersToUse))
         logger.info('options = ' + str(options))
 
         self.npFloatType = np.float32 if not useDoublePrecision else np.float64
