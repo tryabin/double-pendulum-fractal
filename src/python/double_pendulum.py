@@ -14,8 +14,8 @@ from numerical_routines import *
 class PrimaryWindow(pyglet.window.Window):
 
     FPS = 60
-    timestep = .001
-    numStepsToComputePerFrame = int(ceil((1/FPS)/timestep))
+    timeStep = .01/2**2
+    numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
     smoothConfig = pyglet_utils.get_smooth_config()
     labelNumDecimalPlaces = Decimal(10) ** -12
 
@@ -35,13 +35,18 @@ class PrimaryWindow(pyglet.window.Window):
     point1AngularVelocity = 0
     point2AngularVelocity = 0
 
-    point1Angle = -pi+.1
-    point2Angle = 0
+    # point1Angle = -pi+.1
+    # point2Angle = 0
+    point1Angle = (-3.371910665006095 - -3.396454357612266)/2 + -3.396454357612266
+    point2Angle = (1.925992646191392 - 1.901448953585222)/2 + 1.901448953585222
 
     origin = [0, 0]
     originPixels = [origin[0]*pixelsPerMeter + windowWidthPixels/2, origin[1]*pixelsPerMeter + windowHeightPixels/2]
 
     simulationTime = 0
+
+    minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity;
+    print('minimum energy needed to flip = ' + str(minimumEnergyNeededForFlip))
 
     def __init__(self):
         super(PrimaryWindow, self).__init__(config=self.smoothConfig)
@@ -79,18 +84,18 @@ class PrimaryWindow(pyglet.window.Window):
 
         # Compute the next steps of the simulation.
         for i in range(self.numStepsToComputePerFrame):
-            self.point1AngularVelocity, \
-            self.point2AngularVelocity, \
             self.point1Angle, \
-            self.point2Angle = compute_double_pendulum_step_rk4(self.point1Mass, self.point2Mass,
-                                                                self.gravity,
-                                                                self.pendulum1Length, self.pendulum2Length,
-                                                                self.point1Angle, self.point2Angle,
-                                                                self.point1AngularVelocity, self.point2AngularVelocity,
-                                                                self.timestep)
+            self.point2Angle, \
+            self.point1AngularVelocity, \
+            self.point2AngularVelocity = compute_double_pendulum_step_rk4(self.point1Mass, self.point2Mass,
+                                                                          self.gravity,
+                                                                          self.pendulum1Length, self.pendulum2Length,
+                                                                          self.point1Angle, self.point2Angle,
+                                                                          self.point1AngularVelocity, self.point2AngularVelocity,
+                                                                          self.timeStep)
 
 
-        self.simulationTime += self.timestep*self.numStepsToComputePerFrame
+        self.simulationTime += self.timeStep*self.numStepsToComputePerFrame
 
         # Compute and display the energy of the system.
         totalEnergy = get_total_energy_of_pendulum(self.origin,
@@ -147,21 +152,22 @@ def get_total_energy_of_pendulum(origin,
     point2Position = get_point_position(point1Position, point2Angle, pendulum2Length)
 
     # Compute the potential energy of the masses.
-    potentialEnergy1 = (point1Position[1] + pendulum1Length) * point1Mass * gravity
-    potentialEnergy2 = (point2Position[1] + pendulum1Length + pendulum2Length) * point2Mass * gravity
+    potentialEnergy1 = point1Position[1]*point1Mass*gravity
+    potentialEnergy2 = point2Position[1]*point2Mass*gravity
     
     # Compute the kinetic energy of the first mass.
-    point1Velocity = pendulum1Length * point1AngularVelocity
-    kineticEnergyPoint1 = .5 * point1Mass * point1Velocity ** 2
+    point1Velocity = pendulum1Length*point1AngularVelocity
+    kineticEnergyPoint1 = .5*point1Mass*point1Velocity**2
 
-    
     # Compute the kinetic energy of the second mass.
-    point1VelocityX = cos(point1Angle) * point1Velocity
-    point1VelocityY = sin(point1Angle) * point1Velocity
-    point2LocalVelocity = pendulum2Length * point2AngularVelocity
-    point2VelocityX = cos(point2Angle) * point2LocalVelocity + point1VelocityX
-    point2VelocityY = sin(point2Angle) * point2LocalVelocity + point1VelocityY
-    kineticEnergyPoint2 = .5 * point2Mass * (point2VelocityX ** 2 + point2VelocityY ** 2)
+    point1VelocityX = cos(point1Angle)*point1Velocity
+    point1VelocityY = sin(point1Angle)*point1Velocity
+    point2LocalVelocity = pendulum2Length*point2AngularVelocity
+    point2VelocityX = cos(point2Angle)*point2LocalVelocity + point1VelocityX
+    point2VelocityY = sin(point2Angle)*point2LocalVelocity + point1VelocityY
+    point2Velocity = sqrt(point2VelocityX**2 + point2VelocityY**2)
+    kineticEnergyPoint2 = .5*point2Mass*point2Velocity**2
+
     totalEnergy = potentialEnergy1 + potentialEnergy2 + kineticEnergyPoint1 + kineticEnergyPoint2
 
     return totalEnergy
@@ -182,21 +188,24 @@ def get_total_energy_of_pendulum_np(origin,
     potentialEnergy2 = point2Position[1]*point2Mass*gravity
 
     # Compute the kinetic energy of the first mass.
-    point1Velocity = pendulum1Length * point1AngularVelocity
-    kineticEnergyPoint1 = .5 * point1Mass * point1Velocity ** 2
-
+    point1Velocity = pendulum1Length*point1AngularVelocity
+    kineticEnergyPoint1 = .5*point1Mass*point1Velocity**2
 
     # Compute the kinetic energy of the second mass.
-    point1VelocityX = np.cos(point1Angle) * point1Velocity
-    point1VelocityY = np.sin(point1Angle) * point1Velocity
-    point2LocalVelocity = pendulum2Length * point2AngularVelocity
-    point2VelocityX = np.cos(point2Angle) * point2LocalVelocity + point1VelocityX
-    point2VelocityY = np.sin(point2Angle) * point2LocalVelocity + point1VelocityY
-    kineticEnergyPoint2 = .5 * point2Mass * (point2VelocityX ** 2 + point2VelocityY ** 2)
+    point1VelocityX = np.cos(point1Angle)*point1Velocity
+    point1VelocityY = np.sin(point1Angle)*point1Velocity
+    point2LocalVelocity = pendulum2Length*point2AngularVelocity
+    point2VelocityX = np.cos(point2Angle)*point2LocalVelocity + point1VelocityX
+    point2VelocityY = np.sin(point2Angle)*point2LocalVelocity + point1VelocityY
+    point2Velocity = sqrt(point2VelocityX**2 + point2VelocityY**2)
+    kineticEnergyPoint2 = .5*point2Mass*point2Velocity**2
 
     totalEnergy = np.float32(potentialEnergy1 + potentialEnergy2 + kineticEnergyPoint1 + kineticEnergyPoint2)
 
     return totalEnergy
+
+
+
 
 
 

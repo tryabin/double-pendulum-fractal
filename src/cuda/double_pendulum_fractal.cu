@@ -15,10 +15,10 @@ typedef struct PendulumState {
 
 
 typedef struct RungeKuttaStepResults {
-    FloatType acceleration1;
-    FloatType acceleration2;
     FloatType velocity1;
     FloatType velocity2;
+    FloatType acceleration1;
+    FloatType acceleration2;
 } RungeKuttaStepResults;
 
 
@@ -63,19 +63,22 @@ __device__ RungeKuttaStepResults compute_rk_step(PendulumState pendulumState,
                                                  FloatType g,
                                                  FloatType timeStep) {
 
+    // Compute the new pendulum state using Forward Euler.
     PendulumState newPendulumState;
     newPendulumState.angle1 = pendulumState.angle1 + timeStep*previousRungeKuttaStepResults.velocity1;
     newPendulumState.angle2 = pendulumState.angle2 + timeStep*previousRungeKuttaStepResults.velocity2;
     newPendulumState.angularVelocity1 = pendulumState.angularVelocity1 + timeStep*previousRungeKuttaStepResults.acceleration1;
     newPendulumState.angularVelocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
+    // Compute the accelerations at the new pendulum state.
     AccelerationResults accelerationResults = compute_accelerations(newPendulumState, m1, m2, u, length1, length2, g);
 
+    // Return the computed derivatives of position and velocity.
     RungeKuttaStepResults newRungeKuttaStepResults;
+    newRungeKuttaStepResults.velocity1 = newPendulumState.angularVelocity1;
+    newRungeKuttaStepResults.velocity2 = newPendulumState.angularVelocity2;
     newRungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
     newRungeKuttaStepResults.acceleration2 = accelerationResults.acceleration2;
-    newRungeKuttaStepResults.velocity1 = pendulumState.angularVelocity1 + timeStep*previousRungeKuttaStepResults.acceleration1;
-    newRungeKuttaStepResults.velocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
     return newRungeKuttaStepResults;
 }
