@@ -37,6 +37,11 @@ class GenerateDoublePendulumFractalImages:
         logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
 
         # Initialize the simulator.
+        self.initialize_simulator()
+
+
+    def initialize_simulator(self):
+
         self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm)
 
         # The range of pendulum angles.
@@ -158,22 +163,23 @@ class GenerateDoublePendulumFractalImages:
 
 
     def generate_random_color_images(self, numImagesToCreate, maxTimeToSeeIfPendulumFlipsSeconds):
-
-        maxNumberOfTimeStepsToSeeIfPendulumFlips = maxTimeToSeeIfPendulumFlipsSeconds / self.simulator.timeStep
+        # Only the Runge-Kutta-Felhberg method is supported.
+        self.algorithm = SimulationAlgorithm.RKF45
+        self.initialize_simulator()
 
         # Generate the images.
         for i in range(0, numImagesToCreate):
             # Run the kernel.
             initialStates = np.zeros((4, self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(self.simulator.npFloatType))
-            numTimeStepsTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(np.int32))
-            self.simulator.compute_new_pendulum_states_rk4(initialStates, numTimeStepsTillFlip, 0, maxNumberOfTimeStepsToSeeIfPendulumFlips, True)
+            timeTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), self.simulator.npFloatType)
+            self.simulator.compute_new_pendulum_states_rkf45(initialStates, timeTillFlip, 0, maxTimeToSeeIfPendulumFlipsSeconds, True)
 
             # Generate an image from the current time step counts, using random parameters for the coloring.
             redScale = random.uniform(0, 10)
             greenScale = random.uniform(0, 10)
             blueScale = random.uniform(0, 10)
             shift = random.uniform(0, 1)
-            image = self.simulator.create_image_from_number_of_time_steps_till_flip(numTimeStepsTillFlip, redScale, greenScale, blueScale, shift)
+            image = self.simulator.create_image_from_time_till_flip(timeTillFlip, redScale, greenScale, blueScale, shift)
 
             # Save the image to a file.
             save_image_to_file(self.directoryToSaveData, image)
