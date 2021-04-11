@@ -1,3 +1,4 @@
+import enum
 import logging
 import os
 import sys
@@ -12,6 +13,11 @@ from utils import read_file
 
 logger = logging.getLogger('root')
 
+
+class SimulationAlgorithm(enum.Enum):
+   RK4 = 1
+   RKF45 = 2
+
 class DoublePendulumCudaSimulator:
 
     # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
@@ -20,7 +26,7 @@ class DoublePendulumCudaSimulator:
     # 3 means nine total samples are used per pixel, etc.
     antiAliasingAmount = 1
 
-    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, maxRegistersToUse=78):
+    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, maxRegistersToUse=80):
         # Initialize the CUDA driver.
         cuda.init()
         self.device = cuda.Device(deviceNumberToUse)
@@ -34,19 +40,24 @@ class DoublePendulumCudaSimulator:
         self.logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
         logger.info('GPU being used: ' + self.device.name())
 
-        # Initialize the kernels.
-        includeDir = os.getcwd() + '/src/cuda/include'
-        kernelFile = 'src/cuda/double_pendulum_fractal.cu'
-
         # Configure the options to send to the nvcc compiler.
         options = ['-DFLOAT_64'] if useDoublePrecision else ['-DFLOAT_32']
         if useDoublePrecision:
             options.append('-maxrregcount=' + str(maxRegistersToUse))
         logger.info('options = ' + str(options))
 
-        self.npFloatType = np.float32 if not useDoublePrecision else np.float64
-        self.computeDoublePendulumFractalFromInitialStatesFunction = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
-        self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
+        # Initialize the kernels.
+        self.npFloatType = np.float64 if useDoublePrecision else np.float32
+        includeDir = os.getcwd() + '/src/cuda/include'
+        self.algorithm = algorithm
+        if algorithm is SimulationAlgorithm.RK4:
+            kernelFile = 'src/cuda/rk4.cu'
+            self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
+            self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
+        elif algorithm is SimulationAlgorithm.RKF45:
+            kernelFile = 'src/cuda/rkf45.cu'
+            self.computeDoublePendulumFractalFromInitialStatesRKF45Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
+            self.computeColorsFromTimeTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_time_till_flip')
 
 
     def set_angle1_min(self, value):
@@ -73,6 +84,9 @@ class DoublePendulumCudaSimulator:
     def set_time_step(self, value):
         self.timeStep = value
 
+    def set_error_tolerance(self, value):
+        self.errorTolerance = value
+
     def set_gravity(self, value):
         self.gravity = value
 
@@ -93,8 +107,8 @@ class DoublePendulumCudaSimulator:
         self.set_number_of_angles_to_test()
 
 
-    def compute_new_pendulum_states(self, currentStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, startFromDefaultState):
-        logger.info('Computing new pendulum states')
+    def compute_new_pendulum_states_rk4(self, currentStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, startFromDefaultState):
+        logger.info('Computing new pendulum states with Runge-Kutta 4th order method')
         logger.info('time step: ' + str(self.timeStep) + ' seconds')
         logger.info('amount of time already computed: ' + str(numTimeStepsAlreadyExecuted * self.timeStep) + ' seconds')
         logger.info('max time to see if pendulum flips: ' + str(maxTimeStepsToExecute * self.timeStep) + ' seconds')
@@ -104,32 +118,32 @@ class DoublePendulumCudaSimulator:
         logger.info('Running pendulum simulation kernel...')
         kernelStart = time.time()
 
-        self.computeDoublePendulumFractalFromInitialStatesFunction(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
-                                                                   self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
-                                                                   self.npFloatType(self.gravity),
-                                                                   self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
-                                                                   self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
-                                                                   cuda.InOut(currentStates),
-                                                                   np.int32(startFromDefaultState),
-                                                                   np.int32(numTimeStepsAlreadyExecuted),
-                                                                   np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
-                                                                   self.npFloatType(self.timeStep),
-                                                                   np.int32(maxTimeStepsToExecute),
-                                                                   cuda.InOut(numTimeStepsTillFlipData),
-                                                                   # block=(1, 1, 1), grid=(1, 1))
-                                                                   # block=(2, 2, 1), grid=(1, 1))
-                                                                   # block=(4, 4, 1), grid=(4, 4))
-                                                                   # block=(8, 8, 1), grid=(8, 8))
-                                                                   block=(16, 16, 1), grid=(16, 16))
-                                                                   # block=(32, 32, 1), grid=(32, 32))
+        self.computeDoublePendulumFractalFromInitialStatesRK4Function(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
+                                                                      self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
+                                                                      self.npFloatType(self.gravity),
+                                                                      self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                                      self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                                      cuda.InOut(currentStates),
+                                                                      np.int32(startFromDefaultState),
+                                                                      np.int32(numTimeStepsAlreadyExecuted),
+                                                                      np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                                      self.npFloatType(self.timeStep),
+                                                                      np.int32(maxTimeStepsToExecute),
+                                                                      cuda.InOut(numTimeStepsTillFlipData),
+                                                                      # block=(1, 1, 1), grid=(1, 1))
+                                                                      # block=(2, 2, 1), grid=(1, 1))
+                                                                      # block=(4, 4, 1), grid=(4, 4))
+                                                                      # block=(8, 8, 1), grid=(8, 8))
+                                                                      block=(16, 16, 1), grid=(16, 16))
+                                                                      # block=(32, 32, 1), grid=(32, 32))
 
         # Print the time it took to run the kernel.
         timeToExecuteLastKernel = time.time() - kernelStart
         logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
 
 
-    def create_image_from_num_time_steps_till_flip(self, numTimeStepsTillFlipData, redScale, greenScale, blueScale, shift):
-        logger.info('Creating image...')
+    def create_image_from_number_of_time_steps_till_flip(self, numTimeStepsTillFlipData, redScale, greenScale, blueScale, shift):
+        logger.info('Creating image from number of time steps till flip...')
         logger.info('redScale = ' + str(redScale))
         logger.info('greenScale = ' + str(greenScale))
         logger.info('blueScale = ' + str(blueScale))
@@ -142,6 +156,73 @@ class DoublePendulumCudaSimulator:
                                             np.int32(self.numberOfAnglesToTestX),
                                             np.int32(self.numberOfAnglesToTestY),
                                             self.npFloatType(self.timeStep),
+                                            self.npFloatType(redScale),
+                                            self.npFloatType(greenScale),
+                                            self.npFloatType(blueScale),
+                                            self.npFloatType(shift),
+                                            block=(16, 16, 1), grid=(16, 16))
+
+        # Create an image from the colors.
+        redArray = Image.fromarray(colors[0])
+        greenArray = Image.fromarray(colors[1])
+        blueArray = Image.fromarray(colors[2])
+        imageWithoutAntiAliasing = Image.merge('RGB', (redArray, greenArray, blueArray))
+        image = imageWithoutAntiAliasing.resize((self.imageResolutionPixelsWidth, self.imageResolutionPixelsHeight), Image.LANCZOS)
+        logger.info('Finished creating image')
+
+        return image
+
+
+    def compute_new_pendulum_states_rkf45(self, currentStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
+        logger.info('Computing new pendulum states with Runge-Kutta-Fehlberg method')
+        logger.info('time step: ' + str(self.timeStep) + ' seconds')
+        logger.info('error tolerance: ' + str(self.errorTolerance))
+        logger.info('amount of time already computed: ' + str(timeAlreadyExecuted) + ' seconds')
+        logger.info('max time to see if pendulum flips: ' + str(maxTimeToExecute) + ' seconds')
+        logger.info('amount of time to simulate: ' + str(maxTimeToExecute - timeAlreadyExecuted) + ' seconds')
+
+        # Compute the double pendulum fractal image.
+        logger.info('Running pendulum simulation kernel...')
+        kernelStart = time.time()
+
+        self.computeDoublePendulumFractalFromInitialStatesRKF45Function(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
+                                                                        self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
+                                                                        self.npFloatType(self.gravity),
+                                                                        self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                                        self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                                        cuda.InOut(currentStates),
+                                                                        np.int32(startFromDefaultState),
+                                                                        self.npFloatType(timeAlreadyExecuted),
+                                                                        np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                                        self.npFloatType(self.timeStep),
+                                                                        self.npFloatType(self.errorTolerance),
+                                                                        self.npFloatType(maxTimeToExecute),
+                                                                        cuda.InOut(timeTillFlipData),
+                                                                        # block=(1, 1, 1), grid=(1, 1))
+                                                                        # block=(2, 2, 1), grid=(1, 1))
+                                                                        # block=(4, 4, 1), grid=(4, 4))
+                                                                        # block=(8, 8, 1), grid=(8, 8))
+                                                                        block=(16, 16, 1), grid=(16, 16))
+                                                                        # block=(32, 32, 1), grid=(32, 32))
+
+        # Print the time it took to run the kernel.
+        timeToExecuteLastKernel = time.time() - kernelStart
+        logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
+
+
+    def create_image_from_time_till_flip(self, timeTillFlipData, redScale, greenScale, blueScale, shift):
+        logger.info('Creating image from time till flip...')
+        logger.info('redScale = ' + str(redScale))
+        logger.info('greenScale = ' + str(greenScale))
+        logger.info('blueScale = ' + str(blueScale))
+        logger.info('shift = ' + str(shift))
+
+        # Run a kernel to compute the colors from the time step counts.
+        colors = np.zeros((3, self.numberOfAnglesToTestY, self.numberOfAnglesToTestX), np.dtype(np.uint8))
+        self.computeColorsFromTimeTillFlip(cuda.In(timeTillFlipData),
+                                            cuda.Out(colors),
+                                            np.int32(self.numberOfAnglesToTestX),
+                                            np.int32(self.numberOfAnglesToTestY),
                                             self.npFloatType(redScale),
                                             self.npFloatType(greenScale),
                                             self.npFloatType(blueScale),

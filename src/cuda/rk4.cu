@@ -1,64 +1,10 @@
-#include <stdio.h>
-#include <float_type.h>
-#include <math.h>
-#include <math_constants.h>
-#include <point.h>
-#include <util.h>
+#include <simulation_methods.h>
 
-
-typedef struct PendulumState {
-    FloatType angle1;
-    FloatType angle2;
-    FloatType angularVelocity1;
-    FloatType angularVelocity2;
-} PendulumState;
-
-
-typedef struct RungeKuttaStepResults {
-    FloatType velocity1;
-    FloatType velocity2;
-    FloatType acceleration1;
-    FloatType acceleration2;
-} RungeKuttaStepResults;
-
-
-typedef struct AccelerationResults {
-    FloatType acceleration1;
-    FloatType acceleration2;
-} AccelerationResults;
-
-
-enum PendulumFlipStatus {NotEnoughEnergyToFlip = -1, DidNotFlip = -2};
-
-
-__device__ AccelerationResults compute_accelerations(PendulumState pendulumState,
-                                                     FloatType m1, FloatType m2, FloatType u,
-                                                     FloatType length1, FloatType length2,
-                                                     FloatType g) {
-
-    // Store calculations done multiple times in variables for performance.
-    FloatType delta = pendulumState.angle1 - pendulumState.angle2;
-    FloatType sinDelta;
-    FloatType cosDelta;
-    sincos(delta, &sinDelta, &cosDelta);
-    FloatType sinAngle1 = sin(pendulumState.angle1);
-    FloatType sinAngle2 = sin(pendulumState.angle2);
-    FloatType angularVelocity1Squared = pendulumState.angularVelocity1*pendulumState.angularVelocity1;
-    FloatType angularVelocity2Squared = pendulumState.angularVelocity2*pendulumState.angularVelocity2;
-    FloatType uMinusCosDeltaSquared = u - (cosDelta*cosDelta);
-
-    // Compute the accelerations.
-    AccelerationResults results;
-    results.acceleration1 = (g*(sinAngle2*cosDelta - u*sinAngle1) - (length2*angularVelocity2Squared + length1*angularVelocity1Squared*cosDelta)*sinDelta) / (length1*uMinusCosDeltaSquared);
-    results.acceleration2 = (g*u*(sinAngle1*cosDelta - sinAngle2) + (u*length1*angularVelocity1Squared + length2*angularVelocity2Squared*cosDelta)*sinDelta) / (length2*uMinusCosDeltaSquared);
-
-    return results;
-}
 
 
 __device__ RungeKuttaStepResults compute_rk_step(PendulumState pendulumState,
                                                  RungeKuttaStepResults previousRungeKuttaStepResults,
-                                                 FloatType m1, FloatType m2, FloatType u,
+                                                 FloatType u,
                                                  FloatType length1, FloatType length2,
                                                  FloatType g,
                                                  FloatType timeStep) {
@@ -71,30 +17,30 @@ __device__ RungeKuttaStepResults compute_rk_step(PendulumState pendulumState,
     newPendulumState.angularVelocity2 = pendulumState.angularVelocity2 + timeStep*previousRungeKuttaStepResults.acceleration2;
 
     // Compute the accelerations at the new pendulum state.
-    AccelerationResults accelerationResults = compute_accelerations(newPendulumState, m1, m2, u, length1, length2, g);
+    AccelerationResults accelerationResults = compute_accelerations(newPendulumState, u, length1, length2, g);
 
     // Return the computed derivatives of position and velocity.
-    RungeKuttaStepResults newRungeKuttaStepResults;
-    newRungeKuttaStepResults.velocity1 = newPendulumState.angularVelocity1;
-    newRungeKuttaStepResults.velocity2 = newPendulumState.angularVelocity2;
-    newRungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
-    newRungeKuttaStepResults.acceleration2 = accelerationResults.acceleration2;
+    RungeKuttaStepResults rungeKuttaStepResults;
+    rungeKuttaStepResults.velocity1 = newPendulumState.angularVelocity1;
+    rungeKuttaStepResults.velocity2 = newPendulumState.angularVelocity2;
+    rungeKuttaStepResults.acceleration1 = accelerationResults.acceleration1;
+    rungeKuttaStepResults.acceleration2 = accelerationResults.acceleration2;
 
-    return newRungeKuttaStepResults;
+    return rungeKuttaStepResults;
 }
 
 
 __device__ PendulumState compute_double_pendulum_step_rk4(PendulumState pendulumState,
-                                                          FloatType m1, FloatType m2, FloatType u,
+                                                          FloatType u,
                                                           FloatType length1, FloatType length2,
                                                           FloatType g,
                                                           FloatType timeStep) {
 
     // Compute the four steps of the classical Runge-Kutta 4th order algorithm.
-    RungeKuttaStepResults k1 = compute_rk_step(pendulumState, {0, 0, 0, 0}, m1, m2, u, length1, length2, g, timeStep/2);
-    RungeKuttaStepResults k2 = compute_rk_step(pendulumState, k1, m1, m2, u, length1, length2, g, timeStep/2);
-    RungeKuttaStepResults k3 = compute_rk_step(pendulumState, k2, m1, m2, u, length1, length2, g, timeStep/2);
-    RungeKuttaStepResults k4 = compute_rk_step(pendulumState, k3, m1, m2, u, length1, length2, g, timeStep);
+    RungeKuttaStepResults k1 = compute_rk_step(pendulumState, {0, 0, 0, 0}, u, length1, length2, g, timeStep/2);
+    RungeKuttaStepResults k2 = compute_rk_step(pendulumState, k1, u, length1, length2, g, timeStep/2);
+    RungeKuttaStepResults k3 = compute_rk_step(pendulumState, k2, u, length1, length2, g, timeStep/2);
+    RungeKuttaStepResults k4 = compute_rk_step(pendulumState, k3, u, length1, length2, g, timeStep);
 
     // Combine the results of the Runge-Kutta steps.
     FloatType velocity1 = (k1.velocity1 + 2*k2.velocity1 + 2*k3.velocity1 + k4.velocity1)/6;
@@ -186,7 +132,7 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
             bool pendulumFlipped = false;
             while (numberOfTimeStepsExecuted < maxNumberOfTimeStepsToSeeIfPendulumFlips) {
                 // Compute one time step of the pendulum simulation.
-                pendulumState = compute_double_pendulum_step_rk4(pendulumState, m1, m2, u, length1, length2, g, timeStep);
+                pendulumState = compute_double_pendulum_step_rk4(pendulumState, u, length1, length2, g, timeStep);
                 numberOfTimeStepsExecuted++;
 
                 // Check to see if the first mass flipped.
