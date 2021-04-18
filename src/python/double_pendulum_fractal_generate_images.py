@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm
+from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm, ADAPTIVE_STEP_SIZE_METHODS
 from utils import create_directory, save_image_to_file
 
 logger = logging.getLogger('root')
@@ -18,8 +18,9 @@ class GenerateDoublePendulumFractalImages:
     deviceNumberToUse = 0
     useDoublePrecision = False
     # algorithm = SimulationAlgorithm.RK4
-    algorithm = SimulationAlgorithm.RKF45
-
+    # algorithm = SimulationAlgorithm.RKF45
+    algorithm = SimulationAlgorithm.CASH_KARP
+    
     # Used to color the image based on how long it took a pendulum to flip.
     redScale = 1
     greenScale = 4
@@ -73,21 +74,21 @@ class GenerateDoublePendulumFractalImages:
         self.simulator.set_pendulum2_length(1)
 
 
-    def generate_images_from_scratch(self, numImagesToCreate, maxTimeToExecuteInTotal):
+    def generate_images_from_scratch(self, numImagesToCreate, maxTimeToExecuteInTotal, simulationTimeBetweenSaves):
         initialStates = np.zeros((4, self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(self.simulator.npFloatType))
         firstImageComputed = False
 
         if self.algorithm is SimulationAlgorithm.RK4:
             numTimeStepsTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(np.int32))
             maxTimeStepsToExecuteInTotal = maxTimeToExecuteInTotal/self.simulator.timeStep
-            self.generate_images_rk4(self.directoryToSaveData, numImagesToCreate, initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecuteInTotal, firstImageComputed)
+            self.generate_images_rk4(self.directoryToSaveData, numImagesToCreate, initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
 
-        elif self.algorithm is SimulationAlgorithm.RKF45:
+        elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             timeTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), self.simulator.npFloatType)
-            self.generate_images_rkf45(self.directoryToSaveData, numImagesToCreate, initialStates, timeTillFlip, 0, maxTimeToExecuteInTotal, firstImageComputed)
+            self.generate_images_rkf45(self.directoryToSaveData, numImagesToCreate, initialStates, timeTillFlip, 0, maxTimeToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
 
 
-    def generate_images_from_save(self, numImagesToCreate, saveFile):
+    def generate_images_from_save(self, numImagesToCreate, saveFile, simulationTimeBetweenSaves):
         directory = os.path.dirname(saveFile)
         loaded = np.load(saveFile)
         initialStates = loaded['initialStates']
@@ -97,19 +98,19 @@ class GenerateDoublePendulumFractalImages:
             numTimeStepsTillFlipData = loaded['numTimeStepsTillFlipData']
             numTimeStepsAlreadyExecuted = loaded['numTimeStepsAlreadyExecuted'][0]
             maxTimeStepsToExecute = 2*numTimeStepsAlreadyExecuted
-            self.generate_images_rk4(directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed)
+            self.generate_images_rk4(directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves)
 
-        elif self.algorithm is SimulationAlgorithm.RKF45:
+        elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             timeTillFlipData = loaded['timeTillFlipData']
             timeAlreadyExecuted = loaded['timeAlreadyExecuted'][0]
             maxTimeToExecute = 2*timeAlreadyExecuted
-            self.generate_images_rkf45(directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed)
+            self.generate_images_rkf45(directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves)
 
 
-    def generate_images_rk4(self, directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed):
+    def generate_images_rk4(self, directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves):
         for i in range(0, numImagesToCreate):
-            saveFilePath = directory + '/saved_data_for_kernel_run_' + str(i)
-            self.generate_image_rk4(saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed)
+            saveFilePath = directory + '/saved_data_for_kernel_run'
+            self.generate_image_rk4(saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves)
             logger.info('')
 
             numTimeStepsAlreadyExecuted = maxTimeStepsToExecute
@@ -117,10 +118,10 @@ class GenerateDoublePendulumFractalImages:
             firstImageComputed = True
 
 
-    def generate_images_rkf45(self, directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed):
+    def generate_images_rkf45(self, directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves):
         for i in range(0, numImagesToCreate):
-            saveFilePath = directory + '/saved_data_for_kernel_run_' + str(i)
-            self.generate_image_rkf45(saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed)
+            saveFilePath = directory + '/saved_data_for_kernel_run'
+            self.generate_image_adaptive_step_size_method(saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves)
             logger.info('')
 
             timeAlreadyExecuted = maxTimeToExecute
@@ -128,13 +129,17 @@ class GenerateDoublePendulumFractalImages:
             firstImageComputed = True
 
 
-    def generate_image_rk4(self, saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed):
-        # Run the kernel.
-        self.simulator.compute_new_pendulum_states_rk4(initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, not firstImageComputed)
+    def generate_image_rk4(self, saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves):
+        # Run the kernel the given amount of simulation time between saves, saving after each run.
+        simulationTimeStepsBetweenSaves = simulationTimeBetweenSaves/self.simulator.timeStep
+        for i in range(int((maxTimeStepsToExecute - numTimeStepsAlreadyExecuted)/simulationTimeStepsBetweenSaves)):
+            curMaxTimeStepsToExecute = numTimeStepsAlreadyExecuted + simulationTimeStepsBetweenSaves
+            self.simulator.compute_new_pendulum_states_rk4(initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, curMaxTimeStepsToExecute, not firstImageComputed)
+            numTimeStepsAlreadyExecuted = curMaxTimeStepsToExecute
 
-        # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
-        np.savez_compressed(saveFilePath, initialStates=initialStates, numTimeStepsTillFlipData=numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted=np.array([maxTimeStepsToExecute]))
-        logger.info('saved data to: "' + str(saveFilePath) + '"')
+            # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
+            np.savez_compressed(saveFilePath, initialStates=initialStates, numTimeStepsTillFlipData=numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted=np.array([curMaxTimeStepsToExecute]))
+            logger.info('saved data to: "' + str(saveFilePath) + '"')
 
         # Generate an image from the current time step counts.
         image = self.simulator.create_image_from_number_of_time_steps_till_flip(numTimeStepsTillFlipData, self.redScale, self.greenScale, self.blueScale, self.shift)
@@ -145,13 +150,16 @@ class GenerateDoublePendulumFractalImages:
         return image
 
 
-    def generate_image_rkf45(self, saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed):
-        # Run the kernel.
-        self.simulator.compute_new_pendulum_states_rkf45(initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, not firstImageComputed)
+    def generate_image_adaptive_step_size_method(self, saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves):
+        # Run the kernel the given amount of simulation time between saves, saving after each run.
+        for i in range(int((maxTimeToExecute - timeAlreadyExecuted)/simulationTimeBetweenSaves)):
+            curMaxTimeToExecute = timeAlreadyExecuted + simulationTimeBetweenSaves
+            self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlipData, timeAlreadyExecuted, curMaxTimeToExecute, not firstImageComputed)
+            timeAlreadyExecuted = curMaxTimeToExecute
 
-        # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
-        np.savez_compressed(saveFilePath, initialStates=initialStates, timeTillFlipData=timeTillFlipData, timeAlreadyExecuted=np.array([maxTimeToExecute]))
-        logger.info('saved data to: "' + str(saveFilePath) + '"')
+            # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
+            np.savez_compressed(saveFilePath, initialStates=initialStates, timeTillFlipData=timeTillFlipData, timeAlreadyExecuted=np.array([curMaxTimeToExecute]))
+            logger.info('saved data to: "' + str(saveFilePath) + '"')
 
         # Generate an image from the current time step counts.
         image = self.simulator.create_image_from_time_till_flip(timeTillFlipData, self.redScale, self.greenScale, self.blueScale, self.shift)
@@ -164,7 +172,7 @@ class GenerateDoublePendulumFractalImages:
 
     def generate_random_color_images(self, numImagesToCreate, maxTimeToSeeIfPendulumFlipsSeconds):
         # Only the Runge-Kutta-Felhberg method is supported.
-        self.algorithm = SimulationAlgorithm.RKF45
+        self.algorithm = SimulationAlgorithm.CASH_KARP
         self.initialize_simulator()
 
         # Generate the images.
@@ -172,7 +180,7 @@ class GenerateDoublePendulumFractalImages:
             # Run the kernel.
             initialStates = np.zeros((4, self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(self.simulator.npFloatType))
             timeTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), self.simulator.npFloatType)
-            self.simulator.compute_new_pendulum_states_rkf45(initialStates, timeTillFlip, 0, maxTimeToSeeIfPendulumFlipsSeconds, True)
+            self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlip, 0, maxTimeToSeeIfPendulumFlipsSeconds, True)
 
             # Generate an image from the current time step counts, using random parameters for the coloring.
             redScale = random.uniform(0, 10)
@@ -191,9 +199,9 @@ if __name__ == "__main__":
     app = GenerateDoublePendulumFractalImages('./tmp')
 
     # Run the program to generate double pendulum fractal images.
-    app.generate_images_from_scratch(1, 2**6)
+    app.generate_images_from_scratch(3, 2**6, 2**6)
     # app.generate_random_color_images(10, 2**4)
-    # app.generate_images_from_save(1, './tmp/saved_data_for_kernel_run_0.npz')
+    # app.generate_images_from_save(1, './tmp/saved_data_for_kernel_run.npz', 2**8)
 
 
 

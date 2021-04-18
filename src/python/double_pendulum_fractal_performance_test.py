@@ -7,7 +7,7 @@ import winsound
 
 import numpy as np
 
-from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm
+from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm, ADAPTIVE_STEP_SIZE_METHODS
 
 logger = logging.getLogger('root')
 
@@ -16,8 +16,9 @@ class DoublePendulumFractalPerformanceTest:
     # Configuration
     deviceNumberToUse = 0
     useDoublePrecision = False
-    algorithm = SimulationAlgorithm.RK4
+    # algorithm = SimulationAlgorithm.RK4
     # algorithm = SimulationAlgorithm.RKF45
+    algorithm = SimulationAlgorithm.CASH_KARP
 
     def __init__(self, directoryToSaveData):
         # The directory used to store the image and pendulum data files.
@@ -31,7 +32,7 @@ class DoublePendulumFractalPerformanceTest:
         logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
 
 
-    def initialize_simulator(self, maxRegisterCount=78):
+    def initialize_simulator(self, maxRegisterCount=80):
         self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm, maxRegisterCount)
         # The range of pendulum angles.
         # self.simulator.set_angle1_min(-3/2*pi)
@@ -54,7 +55,7 @@ class DoublePendulumFractalPerformanceTest:
 
         # Simulation parameters.
         self.simulator.set_time_step(.01/2**2)
-        self.simulator.set_error_tolerance(1e-7)
+        self.simulator.set_error_tolerance(1e-6)
         self.simulator.set_gravity(1)
         self.simulator.set_point1_mass(1)
         self.simulator.set_point2_mass(1)
@@ -76,8 +77,8 @@ class DoublePendulumFractalPerformanceTest:
             # Run the kernel corresponding to the simulation algorithm to use.
             if self.algorithm is SimulationAlgorithm.RK4:
                 self.simulator.compute_new_pendulum_states_rk4(initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecute, True)
-            elif self.algorithm is SimulationAlgorithm.RKF45:
-                self.simulator.compute_new_pendulum_states_rkf45(initialStates, timeTillFlip, 0, maxTimeToExecute, True)
+            elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
+                self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlip, 0, maxTimeToExecute, True)
 
             totalTime += time.time() - start
 

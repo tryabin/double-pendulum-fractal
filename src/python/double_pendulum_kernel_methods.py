@@ -17,6 +17,9 @@ logger = logging.getLogger('root')
 class SimulationAlgorithm(enum.Enum):
    RK4 = 1
    RKF45 = 2
+   CASH_KARP = 3
+
+ADAPTIVE_STEP_SIZE_METHODS = [SimulationAlgorithm.RKF45, SimulationAlgorithm.CASH_KARP]
 
 class DoublePendulumCudaSimulator:
 
@@ -44,6 +47,8 @@ class DoublePendulumCudaSimulator:
         options = ['-DFLOAT_64'] if useDoublePrecision else ['-DFLOAT_32']
         if useDoublePrecision:
             options.append('-maxrregcount=' + str(maxRegistersToUse))
+        if algorithm in ADAPTIVE_STEP_SIZE_METHODS:
+            options.append('-D' + str(algorithm.name))
         logger.info('options = ' + str(options))
 
         # Initialize the kernels.
@@ -54,9 +59,9 @@ class DoublePendulumCudaSimulator:
             kernelFile = 'src/cuda/rk4.cu'
             self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
             self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
-        elif algorithm is SimulationAlgorithm.RKF45:
-            kernelFile = 'src/cuda/rkf45.cu'
-            self.computeDoublePendulumFractalFromInitialStatesRKF45Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
+        elif algorithm in ADAPTIVE_STEP_SIZE_METHODS:
+            kernelFile = 'src/cuda/adaptive_step_size_methods.cu'
+            self.computeDoublePendulumFractalFromInitialStatesWithAdaptiveStepSizeFunction = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
             self.computeColorsFromTimeTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_time_till_flip')
 
 
@@ -173,8 +178,8 @@ class DoublePendulumCudaSimulator:
         return image
 
 
-    def compute_new_pendulum_states_rkf45(self, currentStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
-        logger.info('Computing new pendulum states with Runge-Kutta-Fehlberg method')
+    def compute_new_pendulum_states_runge_kutta_adaptive_step_size(self, currentStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
+        logger.info('Computing new pendulum states with ' + str(self.algorithm.name) + ' method')
         logger.info('time step: ' + str(self.timeStep) + ' seconds')
         logger.info('error tolerance: ' + str(self.errorTolerance))
         logger.info('amount of time already computed: ' + str(timeAlreadyExecuted) + ' seconds')
@@ -185,25 +190,25 @@ class DoublePendulumCudaSimulator:
         logger.info('Running pendulum simulation kernel...')
         kernelStart = time.time()
 
-        self.computeDoublePendulumFractalFromInitialStatesRKF45Function(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
-                                                                        self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
-                                                                        self.npFloatType(self.gravity),
-                                                                        self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
-                                                                        self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
-                                                                        cuda.InOut(currentStates),
-                                                                        np.int32(startFromDefaultState),
-                                                                        self.npFloatType(timeAlreadyExecuted),
-                                                                        np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
-                                                                        self.npFloatType(self.timeStep),
-                                                                        self.npFloatType(self.errorTolerance),
-                                                                        self.npFloatType(maxTimeToExecute),
-                                                                        cuda.InOut(timeTillFlipData),
-                                                                        # block=(1, 1, 1), grid=(1, 1))
-                                                                        # block=(2, 2, 1), grid=(1, 1))
-                                                                        # block=(4, 4, 1), grid=(4, 4))
-                                                                        # block=(8, 8, 1), grid=(8, 8))
-                                                                        block=(16, 16, 1), grid=(16, 16))
-                                                                        # block=(32, 32, 1), grid=(32, 32))
+        self.computeDoublePendulumFractalFromInitialStatesWithAdaptiveStepSizeFunction(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
+                                                                                       self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
+                                                                                       self.npFloatType(self.gravity),
+                                                                                       self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                                                       self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                                                       cuda.InOut(currentStates),
+                                                                                       np.int32(startFromDefaultState),
+                                                                                       self.npFloatType(timeAlreadyExecuted),
+                                                                                       np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                                                       self.npFloatType(self.timeStep),
+                                                                                       self.npFloatType(self.errorTolerance),
+                                                                                       self.npFloatType(maxTimeToExecute),
+                                                                                       cuda.InOut(timeTillFlipData),
+                                                                                       # block=(1, 1, 1), grid=(1, 1))
+                                                                                       # block=(2, 2, 1), grid=(1, 1))
+                                                                                       # block=(4, 4, 1), grid=(4, 4))
+                                                                                       # block=(8, 8, 1), grid=(8, 8))
+                                                                                       block=(16, 16, 1), grid=(16, 16))
+                                                                                       # block=(32, 32, 1), grid=(32, 32))
 
         # Print the time it took to run the kernel.
         timeToExecuteLastKernel = time.time() - kernelStart
