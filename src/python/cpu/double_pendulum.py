@@ -16,11 +16,12 @@ class PrimaryWindow(pyglet.window.Window):
     # Basic config
     FPS = 60
     timeStep = .01/2**2
-    errorTolerance = 1e-6
-    mp.prec = 24
+    errorTolerance = 1e-7
+    mp.prec = 53
     numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
-    simulationAlgorithm = SimulationAlgorithm.RK4
+    # simulationAlgorithm = SimulationAlgorithm.RK4
     # simulationAlgorithm = SimulationAlgorithm.RKF45
+    simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE
     print('algorithm = ' + str(simulationAlgorithm.name))
 
     # UI config
@@ -105,18 +106,19 @@ class PrimaryWindow(pyglet.window.Window):
                 self.simulationTime += self.timeStep
 
             #RKF45
-            elif self.simulationAlgorithm is SimulationAlgorithm.RKF45:
+            elif self.simulationAlgorithm in ADAPTIVE_TIME_STEP_METHODS:
                 self.point1Angle, \
                 self.point2Angle, \
                 self.point1AngularVelocity, \
                 self.point2AngularVelocity, \
-                timeStepUsedInCalculation, newTimeStep = compute_double_pendulum_step_rkf45(self.point1Mass, self.point2Mass,
-                                                                                            self.gravity,
-                                                                                            self.pendulum1Length, self.pendulum2Length,
-                                                                                            self.point1Angle, self.point2Angle,
-                                                                                            self.point1AngularVelocity, self.point2AngularVelocity,
-                                                                                            self.timeStep,
-                                                                                            self.errorTolerance)
+                timeStepUsedInCalculation, newTimeStep = compute_double_pendulum_step_with_adaptive_step_size_method(self.point1Mass, self.point2Mass,
+                                                                                                                     self.gravity,
+                                                                                                                     self.pendulum1Length, self.pendulum2Length,
+                                                                                                                     self.point1Angle, self.point2Angle,
+                                                                                                                     self.point1AngularVelocity, self.point2AngularVelocity,
+                                                                                                                     self.timeStep,
+                                                                                                                     self.errorTolerance,
+                                                                                                                     self.simulationAlgorithm)
                 self.simulationTime += timeStepUsedInCalculation
                 self.timeStep = newTimeStep
 
@@ -144,8 +146,8 @@ class PrimaryWindow(pyglet.window.Window):
         self.point2.x = point2PositionPixels[0]
         self.point2.y = point2PositionPixels[1]
 
-        self.line1 = primitives.Line(self.originPixels, point1PositionPixels, stroke=5, color=(255,255,255,1))
-        self.line2 = primitives.Line(point1PositionPixels, point2PositionPixels, stroke=5, color=(255,255,255,1))
+        self.line1 = primitives.Line(self.originPixels, point1PositionPixels, stroke=5, color=(255, 255, 255, 1))
+        self.line2 = primitives.Line(point1PositionPixels, point2PositionPixels, stroke=5, color=(255, 255, 255, 1))
 
 
 if __name__ == "__main__":

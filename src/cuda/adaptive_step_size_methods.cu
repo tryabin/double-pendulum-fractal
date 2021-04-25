@@ -3,11 +3,11 @@
 // Runge-Kutta-Fehlberg Butcher tableau constants
 #ifdef RKF45
     __constant__ FloatType butcherTableau[6][5] = {{0,0,0,0,0},
-                                                      {1.0/4.0,0,0,0,0},
-                                                      {3.0/32.0,9.0/32.0,0,0,0},
-                                                      {1932.0/2197.0,-7200.0/2197.0,7296.0/2197.0,0,0},
-                                                      {439.0/216.0,-8.0,3680.0/513.0,-845.0/4104.0,0},
-                                                      {-8.0/27.0,2.0,-3544.0/2565.0,1859.0/4104.0,-11.0/40.0}};
+                                                   {1.0/4.0,0,0,0,0},
+                                                   {3.0/32.0,9.0/32.0,0,0,0},
+                                                   {1932.0/2197.0,-7200.0/2197.0,7296.0/2197.0,0,0},
+                                                   {439.0/216.0,-8.0,3680.0/513.0,-845.0/4104.0,0},
+                                                   {-8.0/27.0,2.0,-3544.0/2565.0,1859.0/4104.0,-11.0/40.0}};
     __constant__ FloatType rkFourthOrderConstants[4] = {25.0/216.0, 1408.0/2565.0, 2197.0/4104.0, -1.0/5.0};
     __constant__ FloatType rkFifthOrderConstants[5] = {16.0/135.0, 6656.0/12825.0, 28561.0/56430.0, -9.0/50.0, 2.0/55.0};
 
@@ -21,6 +21,19 @@
                                                    {1631.0/55296.0,175.0/512,575.0/13824.0,44275.0/110592.0,253.0/4096.0}};
     __constant__ FloatType rkFourthOrderConstants[5] = {2825.0/27648.0, 18575.0/48384.0, 13525.0/55296.0, 277.0/14336.0, 1.0/4.0};
     __constant__ FloatType rkFifthOrderConstants[4] = {37.0/378.0, 250.0/621.0, 125.0/594.0, 512.0/1771.0};
+
+// Dormand-Prince Butcher tableau constants
+#elif DORMAND_PRINCE
+    __constant__ FloatType butcherTableau[7][6] = {{0,0,0,0,0,0},
+                                                   {1.0/5.0,0,0,0,0,0},
+                                                   {3.0/40.0,9.0/40.0,0,0,0,0},
+                                                   {44.0/45.0,-56.0/15.0,32.0/9.0,0,0,0},
+                                                   {19372.0/6561.0,-25360.0/2187.0,64448.0/6561.0,-212.0/729.0,0,0},
+                                                   {9017.0/3168.0,-355.0/33.0,46732.0/5247.0,49.0/176.0,-5103.0/18656.0,0},
+                                                   {35.0/384.0,0,500.0/1113.0,125.0/192.0,-2187.0/6784.0,11.0/84.0}};
+    __constant__ FloatType rkFourthOrderConstants[6] = {5179.0/57600.0, 7571.0/16695.0, 393.0/640.0, -92097.0/339200.0, 187.0/2100.0, 1.0/40.0};
+    __constant__ FloatType rkFifthOrderConstants[5] = {35.0/384.0, 500.0/1113.0, 125.0/192.0, -2187.0/6784.0, 11.0/84.0};
+
 #else
     #error Adaptive step-size method not provided
 #endif
@@ -37,14 +50,14 @@ __device__ void compute_step(PendulumState pendulumState,
                              FloatType u,
                              FloatType length1, FloatType length2,
                              FloatType g,
-                             FloatType kList[6][4], int kListSize, FloatType* kScales,
+                             FloatType kList[6][4], int kListSize, FloatType* butcherTableauRow,
                              FloatType timeStep) {
 
     // Compute the new pendulum state using Forward Euler using every k element.
     FloatType kSums[4] = {0,0,0,0};
     for (int i = 0; i < kListSize; i++) {
         for (int j = 0; j < 4; j++) {
-            kSums[j] += kList[i][j]*kScales[i];
+            kSums[j] += kList[i][j]*butcherTableauRow[i];
         }
     }
 
@@ -65,25 +78,24 @@ __device__ void compute_step(PendulumState pendulumState,
 }
 
 
-__device__ AdaptiveStepSizeResult compute_double_pendulum_adaptive_step_size_method(PendulumState pendulumState,
-                                                                                    FloatType u,
-                                                                                    FloatType length1, FloatType length2,
-                                                                                    FloatType g,
-                                                                                    FloatType timeStep, FloatType errorTolerance) {
-
-    FloatType kList[6][4] = {{0,0,0,0},
-                             {0,0,0,0},
-                             {0,0,0,0},
-                             {0,0,0,0},
-                             {0,0,0,0},
-                             {0,0,0,0}};
+__device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_step_size_method(PendulumState pendulumState,
+                                                                                              FloatType u,
+                                                                                              FloatType length1, FloatType length2,
+                                                                                              FloatType g,
+                                                                                              FloatType timeStep, FloatType errorTolerance) {
 
     // Keep recalculating the step with a smaller time step until the given error tolerance is reached.
+    FloatType kList[7][4];
     while(1) {
         // Compute K values.
         for (int i = 0; i < 6; i++) {
             compute_step(pendulumState, u, length1, length2, g, kList, i, butcherTableau[i], timeStep);
         }
+
+        // Dormand-Prince Butcher Tableau has 7 rows instead of 6.
+        #ifdef DORMAND_PRINCE
+        compute_step(pendulumState, u, length1, length2, g, kList, 6, butcherTableau[6], timeStep);
+        #endif
 
         // Compute the new state of the pendulum with 4th and 5th order methods, and compute what the new time step should be.
         PendulumState newPendulumState;
@@ -103,12 +115,20 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_adaptive_step_size_met
                 FloatType cur4thOrderResult = pendulumStateValues[i] + (rkFourthOrderConstants[0]*kList[0][i] + rkFourthOrderConstants[1]*kList[2][i] + rkFourthOrderConstants[2]*kList[3][i] + rkFourthOrderConstants[3]*kList[4][i] + rkFourthOrderConstants[4]*kList[5][i])*timeStep;
                 FloatType cur5thOrderResult = pendulumStateValues[i] + (rkFifthOrderConstants[0]*kList[0][i] + rkFifthOrderConstants[1]*kList[2][i] + rkFifthOrderConstants[2]*kList[3][i] + rkFifthOrderConstants[3]*kList[5][i])*timeStep;
                 newPendulumStateValues[i] = cur4thOrderResult;
+            #elif DORMAND_PRINCE
+                FloatType cur4thOrderResult = pendulumStateValues[i] + (rkFourthOrderConstants[0]*kList[0][i] + rkFourthOrderConstants[1]*kList[2][i] + rkFourthOrderConstants[2]*kList[3][i] + rkFourthOrderConstants[3]*kList[4][i] + rkFourthOrderConstants[4]*kList[5][i] + rkFourthOrderConstants[5]*kList[6][i])*timeStep;
+                FloatType cur5thOrderResult = pendulumStateValues[i] + (rkFifthOrderConstants[0]*kList[0][i] + rkFifthOrderConstants[1]*kList[2][i] + rkFifthOrderConstants[2]*kList[3][i] + rkFifthOrderConstants[3]*kList[4][i] + rkFifthOrderConstants[4]*kList[5][i])*timeStep;
+                newPendulumStateValues[i] = cur5thOrderResult;
             #endif
 
             // Compute what the new time step should be. The smallest new time step computed for the four pendulum state variables is used.
             if (cur4thOrderResult != cur5thOrderResult) {
                 FloatType R = abs(cur4thOrderResult - cur5thOrderResult) / timeStep;
-                FloatType delta = .84*sqrt(sqrt(errorTolerance/R));
+                #ifdef DORMAND_PRINCE
+                    FloatType delta = pow(errorTolerance/(2*R), 1.0/5.0);
+                #else
+                    FloatType delta = sqrt(sqrt(errorTolerance/(2*R)));
+                #endif
                 FloatType curTimeStepToUseInNextStep = delta*timeStep;
                 timeStepToUseInNextStep = min(timeStepToUseInNextStep, curTimeStepToUseInNextStep);
 
@@ -206,7 +226,7 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
             bool pendulumFlipped = false;
             while (totalTimeExecuted < maxTimeToSeeIfPendulumFlips) {
                 // Compute one time step of the pendulum simulation.
-                AdaptiveStepSizeResult result = compute_double_pendulum_adaptive_step_size_method(pendulumState, u, length1, length2, g, timeStep, errorTolerance);
+                AdaptiveStepSizeResult result = compute_double_pendulum_step_with_adaptive_step_size_method(pendulumState, u, length1, length2, g, timeStep, errorTolerance);
                 pendulumState = result.pendulumState;
                 totalTimeExecuted += result.timeStepUsedInCalculation;
                 timeStep = result.newTimeStep;

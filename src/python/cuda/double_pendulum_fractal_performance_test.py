@@ -18,7 +18,8 @@ class DoublePendulumFractalPerformanceTest:
     useDoublePrecision = False
     # algorithm = SimulationAlgorithm.RK4
     # algorithm = SimulationAlgorithm.RKF45
-    algorithm = SimulationAlgorithm.CASH_KARP
+    # algorithm = SimulationAlgorithm.CASH_KARP
+    algorithm = SimulationAlgorithm.DORMAND_PRINCE
 
     def __init__(self, directoryToSaveData):
         # The directory used to store the image and pendulum data files.
@@ -34,6 +35,7 @@ class DoublePendulumFractalPerformanceTest:
 
     def initialize_simulator(self, maxRegisterCount=80):
         self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm, maxRegisterCount)
+
         # The range of pendulum angles.
         # self.simulator.set_angle1_min(-3/2*pi)
         # self.simulator.set_angle1_max(-1/2*pi)

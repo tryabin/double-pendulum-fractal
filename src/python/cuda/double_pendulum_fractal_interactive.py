@@ -27,7 +27,8 @@ class DoublePendulumFractalApp(tk.Tk):
     useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
     # algorithm = SimulationAlgorithm.RK4
     # algorithm = SimulationAlgorithm.RKF45
-    algorithm = SimulationAlgorithm.CASH_KARP
+    # algorithm = SimulationAlgorithm.CASH_KARP
+    algorithm = SimulationAlgorithm.DORMAND_PRINCE
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -54,7 +55,7 @@ class DoublePendulumFractalApp(tk.Tk):
         # self.simulator.set_angle2_max(1.925992646191392)
 
         # The width of the image in pixels.
-        self.simulator.set_image_width_pixels(500)
+        self.simulator.set_image_width_pixels(1000/2**1)
 
         # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
         # 1 means no anti-aliasing.

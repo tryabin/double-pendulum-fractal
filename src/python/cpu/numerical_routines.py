@@ -7,13 +7,42 @@ from mpmath import *
 class SimulationAlgorithm(enum.Enum):
    RK4 = 1
    RKF45 = 2
+   CASH_KARP = 3
+   DORMAND_PRINCE = 4
 
-kScalesList = mp.matrix([[0, 0, 0, 0, 0],
-                         [1/4, 0, 0, 0, 0],
-                         [3/32, 9/32, 0, 0, 0],
-                         [1932/2197, -7200/2197, 7296/2197, 0, 0],
-                         [439/216, -8, 3680/513, -845/4104, 0],
-                         [-8/27, 2, -3544/2565, 1859/4104, -11/40]]).tolist()
+
+ADAPTIVE_TIME_STEP_METHODS = [SimulationAlgorithm.RKF45, SimulationAlgorithm.CASH_KARP, SimulationAlgorithm.DORMAND_PRINCE]
+
+# Runge-Kutta-Felhberg Butcher Tableau
+rkfButcherTableau = mp.matrix([[0, 0, 0, 0, 0],
+                               [1/4, 0, 0, 0, 0],
+                               [3/32, 9/32, 0, 0, 0],
+                               [1932/2197, -7200/2197, 7296/2197, 0, 0],
+                               [439/216, -8, 3680/513, -845/4104, 0],
+                               [-8/27, 2, -3544/2565, 1859/4104, -11/40]]).tolist()
+rkfFourthOrderConstants = mp.matrix([25/216, 1408/2565, 2197/4104, -1/5])
+rkfFifthOrderConstants = mp.matrix([16/135, 6656/12825, 28561/56430, -9/50, 2/55])
+
+# Cash-Karp Butcher Tableau
+cashKarpButcherTableau = mp.matrix([[0, 0, 0, 0, 0],
+                                    [1/5, 0, 0, 0, 0],
+                                    [3/40, 9/40, 0, 0, 0],
+                                    [3/10, -9/10, 6/5, 0, 0],
+                                    [-11/54, 5/2, -70/27, 35/27, 0],
+                                    [1631/55296, 175/512, 575/13824, 44275/110592, 253/4096]]).tolist()
+cashKarpFourthOrderConstants = mp.matrix([2825/27648, 18575/48384, 13525/55296, 277/14336, 1/4])
+cashKarpFifthOrderConstants = mp.matrix([37/378, 250/621, 125/594, 512/1771])
+
+# Dormand-Prince Butcher Tableau
+dormandPrinceButcherTableau = mp.matrix([[0, 0, 0, 0, 0, 0],
+                                         [1/5, 0, 0, 0, 0, 0],
+                                         [3/40, 9/40, 0, 0, 0, 0], 
+                                         [44/45, -56/15, 32/9, 0, 0, 0],
+                                         [19372/6561, -25360/2187, 64448/6561, -212/729, 0, 0], 
+                                         [9017/3168, -355/33, 46732/5247, 49/176, -5103/18656, 0], 
+                                         [35/384, 0, 500/1113, 125/192, -2187/6784, 11/84]]).tolist()
+dormandPrinceFourthOrderConstants = mp.matrix([5179/57600, 7571/16695, 393/640, -92097/339200, 187/2100, 1/40])
+dormandPrinceFifthOrderConstants = mp.matrix([35/384, 500/1113, 125/192, -2187/6784, 11/84])
 
 
 def compute_double_pendulum_step_rk4(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, timeStep):
@@ -38,20 +67,28 @@ def compute_double_pendulum_step_rk4(m1, m2, g, length1, length2, initialAngle1,
     return point1NewAngle, point2NewAngle, point1NewAngularVelocity, point2NewAngularVelocity
 
 
-def compute_double_pendulum_step_rkf45(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, timeStep, errorTolerance):
+def compute_double_pendulum_step_with_adaptive_step_size_method(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, timeStep, errorTolerance, algorithm):
+
+    # Use the right Butcher Tableau for the chosen method.
+    butcherTableau = fourthOrderConstants = fifthOrderConstants = None
+    if algorithm is SimulationAlgorithm.RKF45:
+        butcherTableau = rkfButcherTableau
+        fourthOrderConstants = rkfFourthOrderConstants
+        fifthOrderConstants = rkfFifthOrderConstants
+    elif algorithm is SimulationAlgorithm.CASH_KARP:
+        butcherTableau = cashKarpButcherTableau
+        fourthOrderConstants = cashKarpFourthOrderConstants
+        fifthOrderConstants = cashKarpFifthOrderConstants
+    elif algorithm is SimulationAlgorithm.DORMAND_PRINCE:
+        butcherTableau = dormandPrinceButcherTableau
+        fourthOrderConstants = dormandPrinceFourthOrderConstants
+        fifthOrderConstants = dormandPrinceFifthOrderConstants
+
     # Compute K values.
     kList = []
-    k1 = compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScalesList[0], timeStep)
-    kList.append(k1)
-    k2 = compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScalesList[1], timeStep)
-    kList.append(k2)
-    k3 = compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScalesList[2], timeStep)
-    kList.append(k3)
-    k4 = compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScalesList[3], timeStep)
-    kList.append(k4)
-    k5 = compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScalesList[4], timeStep)
-    kList.append(k5)
-    k6 = compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScalesList[5], timeStep)
+    for row in butcherTableau:
+        kValue = compute_adaptive_step_size_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, row, timeStep)
+        kList.append(kValue)
 
     # Compute the new state of the pendulum with 4th and 5th order methods, and compute what the new time step should be.
     initialPendulumState = [initialAngle1, initialAngle2, w1, w2]
@@ -61,14 +98,31 @@ def compute_double_pendulum_step_rkf45(m1, m2, g, length1, length2, initialAngle
     timeStepToUseInNextStep = 2*timeStep
     for i in range(4):
         # Compute the value of the variable after one step with 4th and 5th order methods.
-        cur4thOrderResult = initialPendulumState[i] + (25/216*k1[i] + 1408/2565*k3[i] + 2197/4104*k4[i] - 1/5*k5[i])*timeStep
-        cur5thOrderResult = initialPendulumState[i] + (16/135*k1[i] + 6656/12825*k3[i] + 28561/56430*k4[i] - 9/50*k5[i] + 2/55*k6[i])*timeStep
-        newPendulumState[i] = cur4thOrderResult
+        cur4thOrderResult = cur5thOrderResult = None
+        if algorithm is SimulationAlgorithm.RKF45:
+            cur4thOrderResult = initialPendulumState[i] + (fourthOrderConstants[0]*kList[0][i] + fourthOrderConstants[1]*kList[2][i] + fourthOrderConstants[2]*kList[3][i] + fourthOrderConstants[3]*kList[4][i])*timeStep
+            cur5thOrderResult = initialPendulumState[i] + (fifthOrderConstants[0]*kList[0][i] + fifthOrderConstants[1]*kList[2][i] + fifthOrderConstants[2]*kList[3][i] + fifthOrderConstants[3]*kList[4][i] + fifthOrderConstants[4]*kList[5][i])*timeStep
+            newPendulumState[i] = cur4thOrderResult
+        elif algorithm is SimulationAlgorithm.CASH_KARP:
+            cur4thOrderResult = initialPendulumState[i] + (fourthOrderConstants[0]*kList[0][i] + fourthOrderConstants[1]*kList[2][i] + fourthOrderConstants[2]*kList[3][i] + fourthOrderConstants[3]*kList[4][i] + fourthOrderConstants[4]*kList[5][i])*timeStep
+            cur5thOrderResult = initialPendulumState[i] + (fifthOrderConstants[0]*kList[0][i] + fifthOrderConstants[1]*kList[2][i] + fifthOrderConstants[2]*kList[3][i] + fifthOrderConstants[3]*kList[5][i])*timeStep
+            newPendulumState[i] = cur4thOrderResult
+        elif algorithm is SimulationAlgorithm.DORMAND_PRINCE:
+            cur4thOrderResult = initialPendulumState[i] + (fourthOrderConstants[0]*kList[0][i] + fourthOrderConstants[1]*kList[2][i] + fourthOrderConstants[2]*kList[3][i] + fourthOrderConstants[3]*kList[4][i] + fourthOrderConstants[4]*kList[5][i] + fourthOrderConstants[5]*kList[6][i])*timeStep
+            if i < 2:
+                cur5thOrderResult = kList[6][i + 4]
+            else:
+                cur5thOrderResult = kList[6][i-2]
+            newPendulumState[i] = cur5thOrderResult
 
         # Compute what the new time step should be. The smallest new time step computed for the four pendulum state variables is used.
         if cur4thOrderResult != cur5thOrderResult:
             R = abs(cur4thOrderResult - cur5thOrderResult) / timeStep
-            delta = .84*pow(errorTolerance/R, 1/4)
+            delta = None
+            if algorithm is SimulationAlgorithm.RKF45 or SimulationAlgorithm.CASH_KARP:
+                delta = pow(errorTolerance/(2*R), 1/4)
+            elif algorithm is SimulationAlgorithm.DORMAND_PRINCE:
+                delta = pow(errorTolerance/(2*R), 1/5)
             curTimeStepToUseInNextStep = delta*timeStep
             timeStepToUseInNextStep = min(timeStepToUseInNextStep, curTimeStepToUseInNextStep)
 
@@ -80,7 +134,7 @@ def compute_double_pendulum_step_rkf45(m1, m2, g, length1, length2, initialAngle
     # If the tolerance was not met for one of the variables, then recursively recalculate the step with the
     # smallest time step found above.
     if stepNeedsToBeRecalculated:
-        return compute_double_pendulum_step_rkf45(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, timeStepToUseInRecalculation, errorTolerance)
+        return compute_double_pendulum_step_with_adaptive_step_size_method(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, timeStepToUseInRecalculation, errorTolerance, algorithm)
 
     # Create the return value.
     returnValue = list(newPendulumState)
@@ -89,12 +143,12 @@ def compute_double_pendulum_step_rkf45(m1, m2, g, length1, length2, initialAngle
     return tuple(returnValue)
 
 
-def compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, kScales, timeStep):
+def compute_adaptive_step_size_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, kList, butcherTableauRow, timeStep):
     # Compute the new pendulum state using Forward Euler using every k element.
     kSums = [0,0,0,0]
     for i in range(len(kList)):
-        for j in range(len(kList[i])):
-            kSums[j] += kList[i][j]*kScales[i]
+        for j in range(4):
+            kSums[j] += kList[i][j]*butcherTableauRow[i]
 
     newAngle1 = initialAngle1 + timeStep*kSums[0]
     newAngle2 = initialAngle2 + timeStep*kSums[1]
@@ -105,7 +159,7 @@ def compute_rkf_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, 
     angularAcceleration1 = compute_angular_velocity_derivative_point1(m1, m2, g, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2)
     angularAcceleration2 = compute_angular_velocity_derivative_point2(m1, m2, g, length1, length2, newAngle1, newAngle2, newAngularVelocity1, newAngularVelocity2)
 
-    return newAngularVelocity1, newAngularVelocity2, angularAcceleration1, angularAcceleration2
+    return newAngularVelocity1, newAngularVelocity2, angularAcceleration1, angularAcceleration2, newAngle1, newAngle2
 
 
 def compute_k_step(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, previousK, timeStep):
