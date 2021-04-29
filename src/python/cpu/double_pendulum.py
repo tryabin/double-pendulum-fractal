@@ -19,9 +19,10 @@ class PrimaryWindow(pyglet.window.Window):
     errorTolerance = 1e-7
     mp.prec = 53
     numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
-    # simulationAlgorithm = SimulationAlgorithm.RK4
-    # simulationAlgorithm = SimulationAlgorithm.RKF45
-    simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE
+    # simulationAlgorithm = SimulationAlgorithm.RK_4
+    # simulationAlgorithm = SimulationAlgorithm.RKF_45
+    # simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    simulationAlgorithm = SimulationAlgorithm.VERNER_65
     print('algorithm = ' + str(simulationAlgorithm.name))
 
     # UI config
@@ -30,7 +31,7 @@ class PrimaryWindow(pyglet.window.Window):
     windowWidthPixels = int(screenWidth/2)
     windowHeightPixels = int(screenHeight/2)
     smoothConfig = pyglet_utils.get_smooth_config()
-    labelNumDecimalPlaces = 12
+    labelNumDecimalPlaces = 20
     pixelsPerMeter = 100
     ballRadiusPixels = 20
     ballColor = (0, 128/255, 255/255, 1)
@@ -93,7 +94,7 @@ class PrimaryWindow(pyglet.window.Window):
         for i in range(self.numStepsToComputePerFrame):
 
             # RK4
-            if self.simulationAlgorithm is SimulationAlgorithm.RK4:
+            if self.simulationAlgorithm is SimulationAlgorithm.RK_4:
                 self.point1Angle, \
                 self.point2Angle, \
                 self.point1AngularVelocity, \
