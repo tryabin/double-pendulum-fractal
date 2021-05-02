@@ -15,20 +15,20 @@ from utils import save_image_to_file
 logger = logging.getLogger('root')
 
 class DoublePendulumFractalApp(tk.Tk):
-    # UI control parameters.
+    # UI control parameters
     zoomFactor = 2
     maxTimeToSeeIfPendulumFlipsChangeFactor = 2
     timeStepFactor = 2
     errorToleranceFactor = 2
     maxTimeToSeeIfPendulumFlipsSeconds = 2**6
 
-    # Other parameters.
+    # Other parameters
     deviceNumberToUse = 0  # The GPU to use to run the simulation.
     useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
     # algorithm = SimulationAlgorithm.RK_4
     # algorithm = SimulationAlgorithm.RKF_45
-    # algorithm = SimulationAlgorithm.CASH_KARP_45
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    algorithm = SimulationAlgorithm.CASH_KARP_45
+    # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
 
     def __init__(self):
         tk.Tk.__init__(self)
