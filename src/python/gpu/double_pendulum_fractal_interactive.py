@@ -25,10 +25,10 @@ class DoublePendulumFractalApp(tk.Tk):
     # Other parameters.
     deviceNumberToUse = 0  # The GPU to use to run the simulation.
     useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
-    # algorithm = SimulationAlgorithm.RK4
-    # algorithm = SimulationAlgorithm.RKF45
-    # algorithm = SimulationAlgorithm.CASH_KARP
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE
+    # algorithm = SimulationAlgorithm.RK_4
+    # algorithm = SimulationAlgorithm.RKF_45
+    # algorithm = SimulationAlgorithm.CASH_KARP_45
+    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -138,7 +138,7 @@ class DoublePendulumFractalApp(tk.Tk):
 
 
     def increase_accuracy(self, event):
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             self.simulator.timeStep /= self.timeStepFactor
         else:
             self.simulator.errorTolerance /= self.errorToleranceFactor
@@ -147,7 +147,7 @@ class DoublePendulumFractalApp(tk.Tk):
 
 
     def decrease_accuracy(self, event):
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             self.simulator.timeStep *= self.timeStepFactor
         else:
             self.simulator.errorTolerance *= self.errorToleranceFactor
@@ -184,14 +184,14 @@ class DoublePendulumFractalApp(tk.Tk):
         start = time.time()
 
         # Run the kernel.
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             self.simulator.compute_new_pendulum_states_rk4(self.currentStates, self.numTimeStepsTillFlipData, self.numTimeStepsAlreadyExecuted, self.maxTimeToSeeIfPendulumFlipsSeconds/self.simulator.timeStep, startFromDefaultState)
         elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(self.currentStates, self.timeTillFlipData, self.amountOfTimeAlreadyExecuted, self.maxTimeToSeeIfPendulumFlipsSeconds, startFromDefaultState)
 
         # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
         saveFilePath = self.directoryToSaveData + '/saved_data_for_kernel_run'
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             self.numTimeStepsAlreadyExecuted = self.maxTimeToSeeIfPendulumFlipsSeconds/self.simulator.timeStep
             np.savez_compressed(saveFilePath, initialStates=self.currentStates, numTimeStepsTillFlipData=self.numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted=np.array([self.numTimeStepsAlreadyExecuted]))
         elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
@@ -205,7 +205,7 @@ class DoublePendulumFractalApp(tk.Tk):
         blueScale = 7.2
         shift = .11/9.81*pi
         computedImage = None
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             computedImage = self.simulator.create_image_from_number_of_time_steps_till_flip(self.numTimeStepsTillFlipData, redScale, greenScale, blueScale, shift)
         elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             computedImage = self.simulator.create_image_from_time_till_flip(self.timeTillFlipData, redScale, greenScale, blueScale, shift)

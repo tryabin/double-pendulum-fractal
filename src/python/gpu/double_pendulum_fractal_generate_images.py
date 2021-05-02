@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm, ADAPTIVE_STEP_SIZE_METHODS
-from utils import create_directory, save_image_to_file
+from gpu.utils import save_image_to_file
 
 logger = logging.getLogger('root')
 
@@ -17,10 +17,10 @@ class GenerateDoublePendulumFractalImages:
     # Configuration
     deviceNumberToUse = 0
     useDoublePrecision = False
-    # algorithm = SimulationAlgorithm.RK4
-    # algorithm = SimulationAlgorithm.RKF45
-    # algorithm = SimulationAlgorithm.CASH_KARP
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE
+    # algorithm = SimulationAlgorithm.RK_4
+    # algorithm = SimulationAlgorithm.RKF_45
+    # algorithm = SimulationAlgorithm.CASH_KARP_45
+    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
     
     # Used to color the image based on how long it took a pendulum to flip.
     redScale = 1
@@ -79,7 +79,7 @@ class GenerateDoublePendulumFractalImages:
         initialStates = np.zeros((4, self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(self.simulator.npFloatType))
         firstImageComputed = False
 
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             numTimeStepsTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(np.int32))
             maxTimeStepsToExecuteInTotal = maxTimeToExecuteInTotal/self.simulator.timeStep
             self.generate_images_rk4(self.directoryToSaveData, numImagesToCreate, initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
@@ -95,7 +95,7 @@ class GenerateDoublePendulumFractalImages:
         initialStates = loaded['initialStates']
         firstImageComputed = True
 
-        if self.algorithm is SimulationAlgorithm.RK4:
+        if self.algorithm is SimulationAlgorithm.RK_4:
             numTimeStepsTillFlipData = loaded['numTimeStepsTillFlipData']
             numTimeStepsAlreadyExecuted = loaded['numTimeStepsAlreadyExecuted'][0]
             maxTimeStepsToExecute = 2*numTimeStepsAlreadyExecuted
@@ -176,7 +176,7 @@ class GenerateDoublePendulumFractalImages:
 
     def generate_random_color_images(self, numImagesToCreate, maxTimeToSeeIfPendulumFlipsSeconds):
         # Only the Runge-Kutta-Felhberg method is supported.
-        self.algorithm = SimulationAlgorithm.CASH_KARP
+        self.algorithm = SimulationAlgorithm.CASH_KARP_45
         self.initialize_simulator()
 
         # Generate the images.

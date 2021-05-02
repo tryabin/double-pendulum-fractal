@@ -13,14 +13,16 @@ __device__ void compute_step(PendulumState pendulumState,
                              FloatType u,
                              FloatType length1, FloatType length2,
                              FloatType g,
-                             FloatType kList[6][4], int kListSize, FloatType* butcherTableauRow,
+                             FloatType kList[6][4],
+                             int butcherTableauRow,
                              FloatType timeStep) {
 
     // Compute the new pendulum state using Forward Euler using every k element.
     FloatType kSums[4] = {0,0,0,0};
-    for (int i = 0; i < kListSize; i++) {
+    int startingButcherTableauIndex = butcherTableauRow*(butcherTableauRow - 1)/2;
+    for (int i = 0; i < butcherTableauRow; i++) {
         for (int j = 0; j < 4; j++) {
-            kSums[j] += kList[i][j]*butcherTableauRow[i];
+            kSums[j] += kList[i][j]*butcherTableau[startingButcherTableauIndex + i];
         }
     }
 
@@ -34,10 +36,10 @@ __device__ void compute_step(PendulumState pendulumState,
     AccelerationResults accelerationResults = compute_accelerations(newPendulumState, u, length1, length2, g);
 
     // Return the computed derivatives of position and velocity.
-    kList[kListSize][0] = newPendulumState.angularVelocity1;
-    kList[kListSize][1] = newPendulumState.angularVelocity2;
-    kList[kListSize][2] = accelerationResults.acceleration1;
-    kList[kListSize][3] = accelerationResults.acceleration2;
+    kList[butcherTableauRow][0] = newPendulumState.angularVelocity1;
+    kList[butcherTableauRow][1] = newPendulumState.angularVelocity2;
+    kList[butcherTableauRow][2] = accelerationResults.acceleration1;
+    kList[butcherTableauRow][3] = accelerationResults.acceleration2;
 }
 
 
@@ -50,14 +52,15 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_ste
     // Keep recalculating the step with a smaller time step until the given error tolerance is reached.
     FloatType kList[7][4];
     while(1) {
+
         // Compute K values.
         for (int i = 0; i < 6; i++) {
-            compute_step(pendulumState, u, length1, length2, g, kList, i, butcherTableau[i], timeStep);
+            compute_step(pendulumState, u, length1, length2, g, kList, i, timeStep);
         }
 
         // Dormand-Prince Butcher Tableau has 7 rows instead of 6.
-        #ifdef DORMAND_PRINCE
-        compute_step(pendulumState, u, length1, length2, g, kList, 6, butcherTableau[6], timeStep);
+        #ifdef DORMAND_PRINCE_54
+        compute_step(pendulumState, u, length1, length2, g, kList, 6, timeStep);
         #endif
 
         // Compute the new state of the pendulum with 4th and 5th order methods, and compute what the new time step should be.
@@ -70,15 +73,15 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_ste
         for (int i = 0; i < 4; i++) {
             // Compute the value of the variable after one step with 4th and 5th order methods.
             // Different methods are compiled depending on the chosen algorithm.
-            #ifdef RKF45
+            #ifdef RKF_45
                 FloatType cur4thOrderResult = pendulumStateValues[i] + (rkFourthOrderConstants[0]*kList[0][i] + rkFourthOrderConstants[1]*kList[2][i] + rkFourthOrderConstants[2]*kList[3][i] + rkFourthOrderConstants[3]*kList[4][i])*timeStep;
                 FloatType cur5thOrderResult = pendulumStateValues[i] + (rkFifthOrderConstants[0]*kList[0][i] + rkFifthOrderConstants[1]*kList[2][i] + rkFifthOrderConstants[2]*kList[3][i] + rkFifthOrderConstants[3]*kList[4][i] + rkFifthOrderConstants[4]*kList[5][i])*timeStep;
                 newPendulumStateValues[i] = cur4thOrderResult;
-            #elif CASH_KARP
+            #elif CASH_KARP_45
                 FloatType cur4thOrderResult = pendulumStateValues[i] + (rkFourthOrderConstants[0]*kList[0][i] + rkFourthOrderConstants[1]*kList[2][i] + rkFourthOrderConstants[2]*kList[3][i] + rkFourthOrderConstants[3]*kList[4][i] + rkFourthOrderConstants[4]*kList[5][i])*timeStep;
                 FloatType cur5thOrderResult = pendulumStateValues[i] + (rkFifthOrderConstants[0]*kList[0][i] + rkFifthOrderConstants[1]*kList[2][i] + rkFifthOrderConstants[2]*kList[3][i] + rkFifthOrderConstants[3]*kList[5][i])*timeStep;
                 newPendulumStateValues[i] = cur4thOrderResult;
-            #elif DORMAND_PRINCE
+            #elif DORMAND_PRINCE_54
                 FloatType cur4thOrderResult = pendulumStateValues[i] + (rkFourthOrderConstants[0]*kList[0][i] + rkFourthOrderConstants[1]*kList[2][i] + rkFourthOrderConstants[2]*kList[3][i] + rkFourthOrderConstants[3]*kList[4][i] + rkFourthOrderConstants[4]*kList[5][i] + rkFourthOrderConstants[5]*kList[6][i])*timeStep;
                 FloatType cur5thOrderResult = pendulumStateValues[i] + (rkFifthOrderConstants[0]*kList[0][i] + rkFifthOrderConstants[1]*kList[2][i] + rkFifthOrderConstants[2]*kList[3][i] + rkFifthOrderConstants[3]*kList[4][i] + rkFifthOrderConstants[4]*kList[5][i])*timeStep;
                 newPendulumStateValues[i] = cur5thOrderResult;
@@ -87,7 +90,7 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_ste
             // Compute what the new time step should be. The smallest new time step computed for the four pendulum state variables is used.
             if (cur4thOrderResult != cur5thOrderResult) {
                 FloatType R = abs(cur4thOrderResult - cur5thOrderResult) / timeStep;
-                #ifdef DORMAND_PRINCE
+                #ifdef DORMAND_PRINCE_54
                     FloatType delta = pow(errorTolerance/(2*R), 1.0/5.0);
                 #else
                     FloatType delta = sqrt(sqrt(errorTolerance/(2*R)));
@@ -160,7 +163,7 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
                 initialPendulumState.angularVelocity2 = pendulumStates[pixelIndex].angularVelocity2;
             }
 
-            // If not given initial states, skip the current pendulum if it doesn't have enough initial energy to
+            // If starting from the default state, skip the current pendulum if it doesn't have enough initial energy to
             // flip the first mass.
             if (startFromDefaultState) {
                 Point point1Position = get_point_position({0,0}, initialPendulumState.angle1, length1);
@@ -175,8 +178,8 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
                 }
             }
 
-            // Otherwise skip the pendulum if the number of current time steps at the current pendulum is -1, indicating
-            // it originally didn't have enough energy to flip, or the pendulum already flipped.
+            // Otherwise skip the pendulum if the time at the current pendulum is -1, indicating
+            // it originally didn't have enough energy to flip, or -2, indicating that the pendulum already flipped.
             else if (timeTillFlip[pixelIndex] == NotEnoughEnergyToFlip ||
                      timeTillFlip[pixelIndex] != DidNotFlip) {
                 continue;
@@ -202,8 +205,8 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
                 originalAngle1 = pendulumState.angle1;
             }
 
-            // Set the new number of time steps for the pendulum to flip, and the new pendulum state.
-            // Set the number of time steps to -2 if it didn't flip.
+            // Set the new time for the pendulum to flip, and the new pendulum state.
+            // Set the time to -2 if it didn't flip.
             timeTillFlip[pixelIndex] = pendulumFlipped ? totalTimeExecuted : DidNotFlip;
             pendulumStates[pixelIndex] = pendulumState;
         }

@@ -102,8 +102,8 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
                 initialPendulumState.angularVelocity2 = pendulumStates[pixelIndex].angularVelocity2;
             }
 
-            // If not given initial states, skip the current pendulum if it doesn't have enough initial energy to
-            // flip the first mass.
+            // If starting from the default states, skip the current pendulum if it doesn't have enough
+            // initial energy to flip the first mass.
             if (startFromDefaultState) {
                 Point point1Position = get_point_position({0,0}, initialPendulumState.angle1, length1);
                 Point point2Position = get_point_position(point1Position, initialPendulumState.angle2, length2);
@@ -119,7 +119,7 @@ __global__ void compute_double_pendulum_fractal_steps_till_flip_from_initial_sta
             }
 
             // Otherwise skip the pendulum if the number of current time steps at the current pendulum is -1, indicating
-            // it originally didn't have enough energy to flip, or the pendulum already flipped.
+            // it originally didn't have enough energy to flip, or -2, indicating that the pendulum already flipped.
             else if (numTimeStepsTillFlip[pixelIndex] == NotEnoughEnergyToFlip ||
                      numTimeStepsTillFlip[pixelIndex] != DidNotFlip) {
                 continue;

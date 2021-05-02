@@ -15,12 +15,12 @@ logger = logging.getLogger('root')
 
 
 class SimulationAlgorithm(enum.Enum):
-   RK4 = 1
-   RKF45 = 2
-   CASH_KARP = 3
-   DORMAND_PRINCE = 4
+   RK_4 = 1
+   RKF_45 = 2
+   CASH_KARP_45 = 3
+   DORMAND_PRINCE_54 = 4
 
-ADAPTIVE_STEP_SIZE_METHODS = [SimulationAlgorithm.RKF45, SimulationAlgorithm.CASH_KARP, SimulationAlgorithm.DORMAND_PRINCE]
+ADAPTIVE_STEP_SIZE_METHODS = [SimulationAlgorithm.RKF_45, SimulationAlgorithm.CASH_KARP_45, SimulationAlgorithm.DORMAND_PRINCE_54]
 
 class DoublePendulumCudaSimulator:
 
@@ -56,7 +56,7 @@ class DoublePendulumCudaSimulator:
         self.npFloatType = np.float64 if useDoublePrecision else np.float32
         includeDir = os.getcwd() + '/src/cuda/include'
         self.algorithm = algorithm
-        if algorithm is SimulationAlgorithm.RK4:
+        if algorithm is SimulationAlgorithm.RK_4:
             kernelFile = 'src/cuda/rk4.cu'
             self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
             self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')

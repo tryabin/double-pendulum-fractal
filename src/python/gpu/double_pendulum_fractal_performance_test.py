@@ -16,10 +16,10 @@ class DoublePendulumFractalPerformanceTest:
     # Configuration
     deviceNumberToUse = 0
     useDoublePrecision = False
-    # algorithm = SimulationAlgorithm.RK4
-    # algorithm = SimulationAlgorithm.RKF45
-    # algorithm = SimulationAlgorithm.CASH_KARP
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE
+    # algorithm = SimulationAlgorithm.RK_4
+    # algorithm = SimulationAlgorithm.RKF_45
+    # algorithm = SimulationAlgorithm.CASH_KARP_45
+    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
 
     def __init__(self, directoryToSaveData):
         # The directory used to store the image and pendulum data files.
@@ -57,7 +57,7 @@ class DoublePendulumFractalPerformanceTest:
 
         # Simulation parameters.
         self.simulator.set_time_step(.01/2**2)
-        self.simulator.set_error_tolerance(1e-6)
+        self.simulator.set_error_tolerance(1e-9)
         self.simulator.set_gravity(1)
         self.simulator.set_point1_mass(1)
         self.simulator.set_point2_mass(1)
@@ -77,7 +77,7 @@ class DoublePendulumFractalPerformanceTest:
             start = time.time()
 
             # Run the kernel corresponding to the simulation algorithm to use.
-            if self.algorithm is SimulationAlgorithm.RK4:
+            if self.algorithm is SimulationAlgorithm.RK_4:
                 self.simulator.compute_new_pendulum_states_rk4(initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecute, True)
             elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
                 self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlip, 0, maxTimeToExecute, True)
