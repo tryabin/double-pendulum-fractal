@@ -91,9 +91,9 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_ste
             if (cur4thOrderResult != cur5thOrderResult) {
                 FloatType R = abs(cur4thOrderResult - cur5thOrderResult) / timeStep;
                 #ifdef DORMAND_PRINCE_54
-                    FloatType delta = pow(errorTolerance/(2*R), 1.0/5.0);
+                    FloatType delta = powf(errorTolerance/(2*R), 1.0/5.0);
                 #else
-                    FloatType delta = sqrt(sqrt(errorTolerance/(2*R)));
+                    FloatType delta = sqrtf(sqrtf(errorTolerance/(2*R)));
                 #endif
                 FloatType curTimeStepToUseInNextStep = delta*timeStep;
                 timeStepToUseInNextStep = min(timeStepToUseInNextStep, curTimeStepToUseInNextStep);
