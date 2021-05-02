@@ -79,8 +79,8 @@ class DoublePendulumCudaSimulator:
         self.angle2Max = value
 
     def set_image_width_pixels(self, width):
-        self.imageResolutionPixelsWidth = width
-        self.imageResolutionPixelsHeight = round(self.imageResolutionPixelsWidth*(self.angle2Max - self.angle2Min)/(self.angle1Max - self.angle1Min))
+        self.imageResolutionPixelsWidth = int(width)
+        self.imageResolutionPixelsHeight = int(round(self.imageResolutionPixelsWidth*(self.angle2Max - self.angle2Min)/(self.angle1Max - self.angle1Min)))
         self.set_number_of_angles_to_test()
 
     def set_number_of_angles_to_test(self):
