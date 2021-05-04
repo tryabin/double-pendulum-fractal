@@ -19,8 +19,9 @@ class SimulationAlgorithm(enum.Enum):
    RKF_45 = 2
    CASH_KARP_45 = 3
    DORMAND_PRINCE_54 = 4
+   FEHLBERG_87 = 5
 
-ADAPTIVE_STEP_SIZE_METHODS = [SimulationAlgorithm.RKF_45, SimulationAlgorithm.CASH_KARP_45, SimulationAlgorithm.DORMAND_PRINCE_54]
+ADAPTIVE_STEP_SIZE_METHODS = [SimulationAlgorithm.RKF_45, SimulationAlgorithm.CASH_KARP_45, SimulationAlgorithm.DORMAND_PRINCE_54, SimulationAlgorithm.FEHLBERG_87]
 
 class DoublePendulumCudaSimulator:
 

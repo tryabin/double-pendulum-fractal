@@ -10,11 +10,13 @@ class SimulationAlgorithm(enum.Enum):
    CASH_KARP_45 = 3
    DORMAND_PRINCE_54 = 4
    VERNER_65 = 5
+   FEHLBERG_87 = 6
 
 ADAPTIVE_TIME_STEP_METHODS = [SimulationAlgorithm.RKF_45,
                               SimulationAlgorithm.CASH_KARP_45,
                               SimulationAlgorithm.DORMAND_PRINCE_54,
-                              SimulationAlgorithm.VERNER_65]
+                              SimulationAlgorithm.VERNER_65,
+                              SimulationAlgorithm.FEHLBERG_87]
 
 # Runge-Kutta-Felhberg 4(5) Butcher Tableau
 rkf45ButcherTableau = mp.matrix([[0, 0, 0, 0, 0],
@@ -49,31 +51,67 @@ dormandPrince54FifthOrderConstants = mp.matrix([35/384, 500/1113, 125/192, -2187
 
 # Verner 6(5) Butcher Tableau
 verner65ButcherTableau = mp.matrix([[0, 0, 0, 0, 0, 0, 0, 0],
-                                           [1/6, 0, 0, 0, 0, 0, 0, 0],
-                                           [4/75, 16/75, 0, 0, 0, 0, 0, 0],
-                                           [5/6, -8/3, 5/2, 0, 0, 0, 0, 0],
-                                           [-165/64, 55/6, -425/64, 85/96, 0, 0, 0, 0],
-                                           [12/5, -8, 4015/612, -11/36, 88/255, 0, 0, 0],
-                                           [-8263/15000, 124/75, -643/680, -81/250, 2484/10625, 0, 0, 0],
-                                           [3501/1720, -300/43, 297275/52632, -319/2322, 24068/84065, 0, 3850/26703, 0]]).tolist()
+                                    [1/6, 0, 0, 0, 0, 0, 0, 0],
+                                    [4/75, 16/75, 0, 0, 0, 0, 0, 0],
+                                    [5/6, -8/3, 5/2, 0, 0, 0, 0, 0],
+                                    [-165/64, 55/6, -425/64, 85/96, 0, 0, 0, 0],
+                                    [12/5, -8, 4015/612, -11/36, 88/255, 0, 0, 0],
+                                    [-8263/15000, 124/75, -643/680, -81/250, 2484/10625, 0, 0, 0],
+                                    [3501/1720, -300/43, 297275/52632, -319/2322, 24068/84065, 0, 3850/26703, 0]]).tolist()
 verner65FifthOrderConstants = mp.matrix([13/160, 2375/5984, 5/16, 12/85, 3/44])
 verner65SixthOrderConstants = mp.matrix([3/40, 875/2244, 23/72, 264/1955, 125/11592, 43/616])
+
+# Fehlberg 8(7) Butcher Tableau
+# fehlberg87ButcherTableau = mp.matrix([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#                                       [2/27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#                                       [1/36, 1/12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#                                       [1/24, 0, 1/8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#                                       [5/12, 0, -25/16, 25/16, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#                                       [1/20, 0, 0, 1/4, 1/5, 0, 0, 0, 0, 0, 0, 0, 0],
+#                                       [-25/108, 0, 0, 125/108, -65/27, 125/54, 0, 0, 0, 0, 0, 0, 0],
+#                                       [31/300, 0, 0, 0, 61/225, -2/9, 13/900, 0, 0, 0, 0, 0, 0],
+#                                       [2, 0, 0, -53/6, 704/45, -107/9, 67/90, 3, 0, 0, 0, 0, 0],
+#                                       [-91/108, 0, 0, 23/108, -976/135, 311/54, -19/60, 17/6, -1/12, 0, 0, 0, 0],
+#                                       [2383/4100, 0, 0, -341/164, 4496/1025, -301/82, 2133/4100, 45/82, 45/164, 18/41, 0, 0, 0],
+#                                       [3/205, 0, 0, 0, 0, -6/41, -3/205, -3/41, 3/41, 6/41, 0, 0, 0],
+#                                       [-1777/4100, 0, 0, -341/164, 4496/1025, -289/82, 2193/4100, 51/82, 33/164, 12/41, 0, 1, 0]]).tolist()
+
+fehlberg87ButcherTableau = mp.matrix([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                      [2/27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                      [1/36, 1/12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                      [1/24, 0, 1/8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                      [5/12, 0, -25/16, 25/16, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                      [1/20, 0, 0, 1/4, 1/5, 0, 0, 0, 0, 0, 0, 0, 0],
+                                      [-25/108, 0, 0, 125/108, -65/27, 125/54, 0, 0, 0, 0, 0, 0, 0],
+                                      [31/300, 0, 0, 0, 61/225, -2/9, 13/900, 0, 0, 0, 0, 0, 0],
+                                      [2, 0, 0, -53/6, 704/45, -107/9, 67/90, 3, 0, 0, 0, 0, 0],
+                                      [-91/108, 0, 0, 23/108, -976/135, 311/54, -19/60, 17/6, -1/12, 0, 0, 0, 0],
+                                      [2383/4100, 0, 0, -341/164, 4496/1025, -301/82, 2133/4100, 45/82, 45/164, 18/41, 0, 0, 0],
+                                      [3/205, 0, 0, 0, 0, -6/41, -3/205, -3/41, 3/41, 6/41, 0, 0, 0],
+                                      [-1777/4100, 0, 0, -341/164, 4496/1025, -289/82, 2193/4100, 51/82, 33/164, 12/41, 0, 1, 0]]).tolist()
+
+fehlberg87SeventhOrderConstants = mp.matrix([41/840, 34/105, 9/35, 9/35, 9/280, 9/280, 41/840])
+fehlberg87EighthOrderConstants = mp.matrix([34/105, 9/35, 9/35, 9/280, 9/280, 41/840, 41/840])
+
 
 # Mappings for the Butcher Tableaus
 butcherTableauMap = {SimulationAlgorithm.RKF_45 : rkf45ButcherTableau,
                      SimulationAlgorithm.CASH_KARP_45 : cashKarp45ButcherTableau,
                      SimulationAlgorithm.DORMAND_PRINCE_54 : dormandPrince54ButcherTableau,
-                     SimulationAlgorithm.VERNER_65 : verner65ButcherTableau}
+                     SimulationAlgorithm.VERNER_65 : verner65ButcherTableau,
+                     SimulationAlgorithm.FEHLBERG_87 : fehlberg87ButcherTableau}
 
 lowerOrderConstantsMap = {SimulationAlgorithm.RKF_45 : rkf45FourthOrderConstants,
                           SimulationAlgorithm.CASH_KARP_45 : cashKarp45FourthOrderConstants,
                           SimulationAlgorithm.DORMAND_PRINCE_54 : dormandPrince54FourthOrderConstants,
-                          SimulationAlgorithm.VERNER_65 : verner65FifthOrderConstants}
+                          SimulationAlgorithm.VERNER_65 : verner65FifthOrderConstants,
+                          SimulationAlgorithm.FEHLBERG_87 : fehlberg87SeventhOrderConstants}
 
 higherOrderConstantsMap = {SimulationAlgorithm.RKF_45 : rkf45FifthOrderConstants,
                            SimulationAlgorithm.CASH_KARP_45 : cashKarp45FifthOrderConstants,
                            SimulationAlgorithm.DORMAND_PRINCE_54 : dormandPrince54FifthOrderConstants,
-                           SimulationAlgorithm.VERNER_65 : verner65SixthOrderConstants}
+                           SimulationAlgorithm.VERNER_65 : verner65SixthOrderConstants,
+                           SimulationAlgorithm.FEHLBERG_87 : fehlberg87EighthOrderConstants}
 
 
 def compute_double_pendulum_step_rk4(m1, m2, g, length1, length2, initialAngle1, initialAngle2, w1, w2, timeStep):
@@ -145,6 +183,13 @@ def compute_double_pendulum_step_with_adaptive_step_size_method(m1, m2, g, lengt
             curLowerOrderResult = initialPendulumState[i] + (lowerOrderConstants[0]*kList[0][i] + lowerOrderConstants[1]*kList[2][i] + lowerOrderConstants[2]*kList[3][i] + lowerOrderConstants[3]*kList[4][i] + lowerOrderConstants[4]*kList[5][i])*timeStep
             curHigherOrderResult = initialPendulumState[i] + (higherOrderConstants[0]*kList[0][i] + higherOrderConstants[1]*kList[2][i] + higherOrderConstants[2]*kList[3][i] + higherOrderConstants[3]*kList[4][i] + higherOrderConstants[4]*kList[6][i] + higherOrderConstants[5]*kList[7][i])*timeStep
             newPendulumState[i] = curHigherOrderResult
+        elif algorithm is SimulationAlgorithm.FEHLBERG_87:
+            curLowerOrderResult = initialPendulumState[i] + (lowerOrderConstants[0]*kList[0][i] + lowerOrderConstants[1]*kList[5][i] + lowerOrderConstants[2]*kList[6][i] + lowerOrderConstants[3]*kList[7][i] + lowerOrderConstants[4]*kList[8][i] + lowerOrderConstants[5]*kList[9][i] + lowerOrderConstants[6]*kList[10][i])*timeStep
+            curHigherOrderResult = initialPendulumState[i] + (higherOrderConstants[0]*kList[5][i] + higherOrderConstants[1]*kList[6][i] + higherOrderConstants[2]*kList[7][i] + higherOrderConstants[3]*kList[8][i] + higherOrderConstants[4]*kList[9][i] + higherOrderConstants[5]*kList[11][i] + higherOrderConstants[6]*kList[12][i])*timeStep
+            newPendulumState[i] = curHigherOrderResult
+
+        print('curLowerOrderResult = ' + str(curLowerOrderResult))
+        print('curHigherOrderResult = ' + str(curHigherOrderResult))
 
         # Compute what the new time step should be. The smallest new time step computed for the four pendulum state variables is used.
         if curLowerOrderResult != curHigherOrderResult:
@@ -156,6 +201,8 @@ def compute_double_pendulum_step_with_adaptive_step_size_method(m1, m2, g, lengt
                 delta = pow(errorTolerance/(2*R), 1/5)
             elif algorithm in {SimulationAlgorithm.VERNER_65}:
                 delta = pow(errorTolerance/(2*R), 1/6)
+            elif algorithm is SimulationAlgorithm.FEHLBERG_87:
+                delta = pow(errorTolerance/(2*R), 1/8)
             curTimeStepToUseInNextStep = delta*timeStep
             timeStepToUseInNextStep = min(timeStepToUseInNextStep, curTimeStepToUseInNextStep)
 

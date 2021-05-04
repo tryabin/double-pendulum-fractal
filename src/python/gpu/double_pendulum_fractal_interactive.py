@@ -29,6 +29,7 @@ class DoublePendulumFractalApp(tk.Tk):
     # algorithm = SimulationAlgorithm.RKF_45
     algorithm = SimulationAlgorithm.CASH_KARP_45
     # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    # algorithm = SimulationAlgorithm.FEHLBERG_87
 
     def __init__(self):
         tk.Tk.__init__(self)

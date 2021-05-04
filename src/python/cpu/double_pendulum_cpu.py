@@ -34,7 +34,8 @@ errorTolerance = mpf(9e-15)
 # simulationAlgorithm = SimulationAlgorithm.RKF45
 # simulationAlgorithm = SimulationAlgorithm.CASH_KARP
 # simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE_54
-simulationAlgorithm = SimulationAlgorithm.VERNER_65
+# simulationAlgorithm = SimulationAlgorithm.VERNER_65
+simulationAlgorithm = SimulationAlgorithm.FEHLBERG_87
 
 
 # Print simulation info.
