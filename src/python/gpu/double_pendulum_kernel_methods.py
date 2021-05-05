@@ -31,7 +31,7 @@ class DoublePendulumCudaSimulator:
     # 3 means nine total samples are used per pixel, etc.
     antiAliasingAmount = 1
 
-    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, maxRegistersToUse=80):
+    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, maxRegistersToUse=None):
         # Initialize the CUDA driver.
         cuda.init()
         self.device = cuda.Device(deviceNumberToUse)
@@ -47,8 +47,15 @@ class DoublePendulumCudaSimulator:
 
         # Configure the options to send to the nvcc compiler.
         options = ['-DFLOAT_64'] if useDoublePrecision else ['-DFLOAT_32']
+        # The max register count, used for performance optimization.
         if useDoublePrecision:
+            if maxRegistersToUse is None:
+                if algorithm is SimulationAlgorithm.FEHLBERG_87:
+                    maxRegistersToUse = 88
+                else:
+                    maxRegistersToUse = 80
             options.append('-maxrregcount=' + str(maxRegistersToUse))
+        # The Runge-Kutta algorithm to use in the kernel.
         if algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             options.append('-D' + str(algorithm.name))
         logger.info('options = ' + str(options))
