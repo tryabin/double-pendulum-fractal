@@ -19,7 +19,8 @@ class DoublePendulumFractalPerformanceTest:
     # algorithm = SimulationAlgorithm.RK_4
     # algorithm = SimulationAlgorithm.RKF_45
     # algorithm = SimulationAlgorithm.CASH_KARP_45
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    algorithm = SimulationAlgorithm.FEHLBERG_87
 
     def __init__(self, directoryToSaveData):
         # The directory used to store the image and pendulum data files.
