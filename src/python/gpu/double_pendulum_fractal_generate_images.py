@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm, ADAPTIVE_STEP_SIZE_METHODS
-from gpu.utils import save_image_to_file
+from gpu.utils import save_image_to_file, create_directory
 
 logger = logging.getLogger('root')
 
@@ -20,7 +20,8 @@ class GenerateDoublePendulumFractalImages:
     # algorithm = SimulationAlgorithm.RK_4
     # algorithm = SimulationAlgorithm.RKF_45
     # algorithm = SimulationAlgorithm.CASH_KARP_45
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    algorithm = SimulationAlgorithm.FEHLBERG_87
     
     # Used to color the image based on how long it took a pendulum to flip.
     redScale = 1
@@ -47,27 +48,27 @@ class GenerateDoublePendulumFractalImages:
         self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm)
 
         # The range of pendulum angles.
-        self.simulator.set_angle1_min(-3/2*pi)
-        self.simulator.set_angle1_max(-1/2*pi)
-        self.simulator.set_angle2_min(0*pi)
-        self.simulator.set_angle2_max(2*pi)
-        # self.simulator.set_angle1_min(-3.396454357612266)
-        # self.simulator.set_angle1_max(-3.371910665006095)
-        # self.simulator.set_angle2_min(1.901448953585222)
-        # self.simulator.set_angle2_max(1.925992646191392)
+        # self.simulator.set_angle1_min(-3/2*pi)
+        # self.simulator.set_angle1_max(-1/2*pi)
+        # self.simulator.set_angle2_min(0*pi)
+        # self.simulator.set_angle2_max(2*pi)
+        self.simulator.set_angle1_min(-3.396454357612266)
+        self.simulator.set_angle1_max(-3.371910665006095)
+        self.simulator.set_angle2_min(1.901448953585222)
+        self.simulator.set_angle2_max(1.925992646191392)
 
         # The width of the image in pixels.
-        self.simulator.set_image_width_pixels(int(1000/2**1))
+        self.simulator.set_image_width_pixels(int(1000/2**0))
 
         # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
         # 1 means no anti-aliasing.
         # 2 means four total samples are used per pixel.
         # 3 means nine total samples are used per pixel, etc.
-        self.simulator.set_anti_aliasing_amount(2)
+        self.simulator.set_anti_aliasing_amount(1)
 
         # Simulation parameters.
         self.simulator.set_time_step(.01/2**2)
-        self.simulator.set_error_tolerance(1e-7)
+        self.simulator.set_error_tolerance(3.8e-12)
         self.simulator.set_gravity(1)
         self.simulator.set_point1_mass(1)
         self.simulator.set_point2_mass(1)
@@ -199,11 +200,11 @@ class GenerateDoublePendulumFractalImages:
 
 
 if __name__ == "__main__":
-    # app = GenerateDoublePendulumFractalImages(create_directory())
-    app = GenerateDoublePendulumFractalImages('./tmp')
+    app = GenerateDoublePendulumFractalImages(create_directory())
+    # app = GenerateDoublePendulumFractalImages('./tmp')
 
     # Run the program to generate double pendulum fractal images.
-    app.generate_images_from_scratch(3, 2**6, 2**6)
+    app.generate_images_from_scratch(15, 2**8, 2**15)
     # app.generate_random_color_images(10, 2**4)
     # app.generate_images_from_save(1, './tmp/saved_data_for_kernel_run.npz', 2**8)
 

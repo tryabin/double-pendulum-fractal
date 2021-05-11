@@ -414,7 +414,8 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
 
             // Set the new time for the pendulum to flip, and the new pendulum state.
             // Set the time to -2 if it didn't flip.
-            timeTillFlip[pixelIndex] = pendulumFlipped ? totalTimeExecuted : DidNotFlip;
+            FloatType interpolatedTimeTillFlip = totalTimeExecuted - (timeStep - (PI*round(originalAngle1 / PI) - originalAngle1) / pendulumState.angularVelocity1);
+            timeTillFlip[pixelIndex] = pendulumFlipped ? interpolatedTimeTillFlip : DidNotFlip;
             pendulumStates[pixelIndex] = pendulumState;
         }
     }
