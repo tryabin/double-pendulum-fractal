@@ -16,13 +16,14 @@ class PrimaryWindow(pyglet.window.Window):
     # Basic config
     FPS = 60
     timeStep = .01/2**2
-    errorTolerance = 1e-7
+    errorTolerance = 1e-9
     mp.prec = 53
     numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
     # simulationAlgorithm = SimulationAlgorithm.RK_4
     # simulationAlgorithm = SimulationAlgorithm.RKF_45
     # simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE_54
-    simulationAlgorithm = SimulationAlgorithm.VERNER_65
+    # simulationAlgorithm = SimulationAlgorithm.VERNER_65
+    simulationAlgorithm = SimulationAlgorithm.FEHLBERG_87
     print('algorithm = ' + str(simulationAlgorithm.name))
 
     # UI config

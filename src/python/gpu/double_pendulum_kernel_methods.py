@@ -64,8 +64,8 @@ class DoublePendulumCudaSimulator:
             self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
             self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
         elif algorithm in ADAPTIVE_STEP_SIZE_METHODS:
-            kernelFile = 'src/cuda/adaptive_step_size_methods.cu'
-            self.computeDoublePendulumFractalFromInitialStatesWithAdaptiveStepSizeFunction = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
+            kernelFile = 'src/cuda/compute_double_pendulum_fractal_time_till_flip_method.cu'
+            self.computeDoublePendulumFractalWithTimeTillFlipMethodAndAdaptiveStepSize = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
             self.computeColorsFromTimeTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_time_till_flip')
 
 
@@ -194,24 +194,24 @@ class DoublePendulumCudaSimulator:
         logger.info('Running pendulum simulation kernel...')
         kernelStart = time.time()
 
-        self.computeDoublePendulumFractalFromInitialStatesWithAdaptiveStepSizeFunction(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
-                                                                                       self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
-                                                                                       self.npFloatType(self.gravity),
-                                                                                       self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
-                                                                                       self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
-                                                                                       cuda.InOut(currentStates),
-                                                                                       np.int32(startFromDefaultState),
-                                                                                       self.npFloatType(timeAlreadyExecuted),
-                                                                                       np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
-                                                                                       self.npFloatType(self.timeStep),
-                                                                                       self.npFloatType(self.errorTolerance),
-                                                                                       self.npFloatType(maxTimeToExecute),
-                                                                                       cuda.InOut(timeTillFlipData),
-                                                                                       # block=(1, 1, 1), grid=(1, 1))
-                                                                                       # block=(2, 2, 1), grid=(1, 1))
-                                                                                       # block=(4, 4, 1), grid=(4, 4))
-                                                                                       # block=(8, 8, 1), grid=(8, 8))
-                                                                                       block=(16, 16, 1), grid=(16, 16))
+        self.computeDoublePendulumFractalWithTimeTillFlipMethodAndAdaptiveStepSize(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
+                                                                                   self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
+                                                                                   self.npFloatType(self.gravity),
+                                                                                   self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                                                   self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                                                   cuda.InOut(currentStates),
+                                                                                   np.int32(startFromDefaultState),
+                                                                                   self.npFloatType(timeAlreadyExecuted),
+                                                                                   np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                                                   self.npFloatType(self.timeStep),
+                                                                                   self.npFloatType(self.errorTolerance),
+                                                                                   self.npFloatType(maxTimeToExecute),
+                                                                                   cuda.InOut(timeTillFlipData),
+                                                                                   # block=(1, 1, 1), grid=(1, 1))
+                                                                                   # block=(2, 2, 1), grid=(1, 1))
+                                                                                   # block=(4, 4, 1), grid=(4, 4))
+                                                                                   # block=(8, 8, 1), grid=(8, 8))
+                                                                                   block=(16, 16, 1), grid=(16, 16))
                                                                                        # block=(32, 32, 1), grid=(32, 32))
 
         # Print the time it took to run the kernel.

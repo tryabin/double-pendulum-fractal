@@ -176,8 +176,7 @@ class GenerateDoublePendulumFractalImages:
 
 
     def generate_random_color_images(self, numImagesToCreate, maxTimeToSeeIfPendulumFlipsSeconds):
-        # Only the Runge-Kutta-Felhberg method is supported.
-        self.algorithm = SimulationAlgorithm.CASH_KARP_45
+        # self.algorithm = SimulationAlgorithm.FEHLBERG_87
         self.initialize_simulator()
 
         # Generate the images.
