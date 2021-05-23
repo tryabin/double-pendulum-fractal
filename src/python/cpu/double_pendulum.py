@@ -16,14 +16,14 @@ class PrimaryWindow(pyglet.window.Window):
     # Basic config
     FPS = 60
     timeStep = .01/2**2
-    errorTolerance = 1e-9
+    errorTolerance = 1e-10
     mp.prec = 53
     numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
-    # simulationAlgorithm = SimulationAlgorithm.RK_4
+    simulationAlgorithm = SimulationAlgorithm.RK_4
     # simulationAlgorithm = SimulationAlgorithm.RKF_45
     # simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE_54
     # simulationAlgorithm = SimulationAlgorithm.VERNER_65
-    simulationAlgorithm = SimulationAlgorithm.FEHLBERG_87
+    # simulationAlgorithm = SimulationAlgorithm.FEHLBERG_87
     print('algorithm = ' + str(simulationAlgorithm.name))
 
     # UI config
@@ -47,10 +47,52 @@ class PrimaryWindow(pyglet.window.Window):
     pendulum2Length = 1
     point1AngularVelocity = 0
     point2AngularVelocity = 0
-    # point1Angle = -pi+.1
-    # point2Angle = 0
-    point1Angle = (-3.371910665006095 - -3.396454357612266)/2 + -3.396454357612266
-    point2Angle = (1.925992646191392 - 1.901448953585222)/2 + 1.901448953585222
+
+    # 7 o'clock stable area
+    # minAngle1 = -3.396454357612266
+    # maxAngle1 = -3.371910665006095
+    # minAngle2 = 1.901448953585222
+    # maxAngle2 = 1.925992646191392
+
+    # 2nd mass spins in one direction
+    # minAngle1 = 2.850507319679923
+    # maxAngle1 = 2.8535752812556945
+    # minAngle2 = 2.10120065625985
+    # maxAngle2 = 2.1042686178356216
+
+    # 5 o'clock stable area
+    # minAngle1 = -2.749580795284042
+    # maxAngle1 = -2.7004934100717017
+    # minAngle2 = 1.8155460294636265
+    # maxAngle2 = 1.8646334146759669
+
+    # 9 o'clock stable area
+    # minAngle1 = -4.0033707883776435
+    # maxAngle1 = -3.9051960179529623
+    # minAngle2 = 3.2218996157971826
+    # maxAngle2 = 3.3200743862218642
+
+    # 7 o'clock edge stable area
+    # minAngle1 = -4.169727936862266
+    # maxAngle1 = -4.157456090559181
+    # minAngle2 = 1.6173557116687927
+    # maxAngle2 = 1.6296275579718777
+
+    # 10 o'clock edge stable area
+    # minAngle1 = -4.069786020569939
+    # maxAngle1 = -4.04524232796377
+    # minAngle2 = 4.156768867166207
+    # maxAngle2 = 4.181312559772378
+
+    # 8 o'clock just beyond edge stable area
+    minAngle1 = -4.535968917931539
+    maxAngle1 = -4.486881532719199
+    minAngle2 = 1.9843084598236533
+    maxAngle2 = 2.0333958450359937
+    
+    point1Angle = (maxAngle1 - minAngle1)/2 + minAngle1
+    point2Angle = (maxAngle2 - minAngle2)/2 + minAngle2
+
     print('point1Angle = ' + str(point1Angle))
     print('point2Angle = ' + str(point2Angle))
     minimumEnergyNeededForFlip = point1Mass*pendulum1Length*gravity + point2Mass*(pendulum1Length - pendulum2Length)*gravity

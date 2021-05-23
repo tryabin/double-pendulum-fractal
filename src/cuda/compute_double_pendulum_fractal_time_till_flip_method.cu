@@ -6,14 +6,14 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
                                                                                    FloatType g,
                                                                                    FloatType angle1Min, FloatType angle1Max,
                                                                                    FloatType angle2Min, FloatType angle2Max,
-                                                                                   PendulumState *pendulumStates,
+                                                                                   PendulumState* pendulumStates,
                                                                                    bool startFromDefaultState,
                                                                                    FloatType amountOfTimeAlreadyExecuted,
                                                                                    int totalNumberOfAnglesToTestX, int totalNumberOfAnglesToTestY,
                                                                                    FloatType timeStep,
                                                                                    FloatType errorTolerance,
                                                                                    FloatType maxTimeToSeeIfPendulumFlips,
-                                                                                   FloatType *timeTillFlip) {
+                                                                                   FloatType* timeTillFlip) {
 
     int stepX = gridDim.x*blockDim.x;
     int stepY =  gridDim.y*blockDim.y;
@@ -96,8 +96,8 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
 }
 
 
-__global__ void compute_colors_from_time_till_flip(FloatType *timeTillFlip,
-                                                   char *colors,
+__global__ void compute_colors_from_time_till_flip(FloatType* timeTillFlip,
+                                                   char* colors,
                                                    int totalNumberOfAnglesToTestX,
                                                    int totalNumberOfAnglesToTestY,
                                                    FloatType redScale,

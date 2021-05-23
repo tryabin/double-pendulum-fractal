@@ -159,7 +159,7 @@ class GenerateDoublePendulumFractalImages:
         simulationTimeBetweenSaves = min(simulationTimeBetweenSaves, simulationTimeToExecuteForImage)
         for i in range(int(simulationTimeToExecuteForImage/simulationTimeBetweenSaves)):
             curMaxTimeToExecute = timeAlreadyExecuted + simulationTimeBetweenSaves
-            self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlipData, timeAlreadyExecuted, curMaxTimeToExecute, not firstImageComputed)
+            self.simulator.compute_new_pendulum_states_time_till_flip_adaptive_step_size_method(initialStates, timeTillFlipData, timeAlreadyExecuted, curMaxTimeToExecute, not firstImageComputed)
             timeAlreadyExecuted = curMaxTimeToExecute
 
             # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
@@ -184,7 +184,7 @@ class GenerateDoublePendulumFractalImages:
             # Run the kernel.
             initialStates = np.zeros((4, self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(self.simulator.npFloatType))
             timeTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), self.simulator.npFloatType)
-            self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlip, 0, maxTimeToSeeIfPendulumFlipsSeconds, True)
+            self.simulator.compute_new_pendulum_states_time_till_flip_adaptive_step_size_method(initialStates, timeTillFlip, 0, maxTimeToSeeIfPendulumFlipsSeconds, True)
 
             # Generate an image from the current time step counts, using random parameters for the coloring.
             redScale = random.uniform(0, 10)

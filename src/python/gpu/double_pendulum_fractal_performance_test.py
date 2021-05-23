@@ -81,7 +81,7 @@ class DoublePendulumFractalPerformanceTest:
             if self.algorithm is SimulationAlgorithm.RK_4:
                 self.simulator.compute_new_pendulum_states_rk4(initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecute, True)
             elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
-                self.simulator.compute_new_pendulum_states_runge_kutta_adaptive_step_size(initialStates, timeTillFlip, 0, maxTimeToExecute, True)
+                self.simulator.compute_new_pendulum_states_time_till_flip_adaptive_step_size_method(initialStates, timeTillFlip, 0, maxTimeToExecute, True)
 
             totalTime += time.time() - start
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     startingMaxRegisterCount = 80
     endingMaxRegisterCount = 80
     numTimesToRunKernel = 1
-    maxTimeSteps = 2**6
+    maxTimeSteps = 2**8
     app = DoublePendulumFractalPerformanceTest('./tmp')
 
     logger.info('maxRegisterCount, average kernel time (seconds)')

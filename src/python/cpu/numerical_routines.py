@@ -188,9 +188,6 @@ def compute_double_pendulum_step_with_adaptive_step_size_method(m1, m2, g, lengt
             curHigherOrderResult = initialPendulumState[i] + (higherOrderConstants[0]*kList[5][i] + higherOrderConstants[1]*kList[6][i] + higherOrderConstants[2]*kList[7][i] + higherOrderConstants[3]*kList[8][i] + higherOrderConstants[4]*kList[9][i] + higherOrderConstants[5]*kList[11][i] + higherOrderConstants[6]*kList[12][i])*timeStep
             newPendulumState[i] = curHigherOrderResult
 
-        print('curLowerOrderResult = ' + str(curLowerOrderResult))
-        print('curHigherOrderResult = ' + str(curHigherOrderResult))
-
         # Compute what the new time step should be. The smallest new time step computed for the four pendulum state variables is used.
         if curLowerOrderResult != curHigherOrderResult:
             R = abs(curLowerOrderResult - curHigherOrderResult) / timeStep

@@ -8,6 +8,7 @@ import numpy as np
 import pycuda.driver as cuda
 from PIL import Image
 from pycuda.compiler import SourceModule
+import matplotlib.pyplot as plt
 
 from utils import read_file
 
@@ -60,13 +61,17 @@ class DoublePendulumCudaSimulator:
         includeDir = os.getcwd() + '/src/cuda/include'
         self.algorithm = algorithm
         if algorithm is SimulationAlgorithm.RK_4:
-            kernelFile = 'src/cuda/rk4.cu'
-            self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
-            self.computeColorsFromStepsTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
+            timeTillFlipMethodKernelFile = 'src/cuda/rk4.cu'
+            self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
+            self.computeColorsFromStepsTillFlip = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
         elif algorithm in ADAPTIVE_STEP_SIZE_METHODS:
-            kernelFile = 'src/cuda/compute_double_pendulum_fractal_time_till_flip_method.cu'
-            self.computeDoublePendulumFractalWithTimeTillFlipMethodAndAdaptiveStepSize = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
-            self.computeColorsFromTimeTillFlip = SourceModule(read_file(kernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_time_till_flip')
+            timeTillFlipMethodKernelFile = 'src/cuda/compute_double_pendulum_fractal_time_till_flip_method.cu'
+            self.computeDoublePendulumFractalWithTimeTillFlipMethodAndAdaptiveStepSize = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
+            self.computeColorsFromTimeTillFlip = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_time_till_flip')
+
+            amountOfChaosMethodKernelFile = 'src/cuda/compute_double_pendulum_fractal_amount_of_chaos_method.cu'
+            self.computeDoublePendulumFractalWithAmountOfChaosMethod = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_amount_of_chaos_method')
+            self.computeAmountOfChaos = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_amount_of_chaos')
 
 
     def set_angle1_min(self, value):
@@ -182,8 +187,9 @@ class DoublePendulumCudaSimulator:
         return image
 
 
-    def compute_new_pendulum_states_runge_kutta_adaptive_step_size(self, currentStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
+    def compute_new_pendulum_states_time_till_flip_adaptive_step_size_method(self, currentStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
         logger.info('Computing new pendulum states with ' + str(self.algorithm.name) + ' method')
+        logger.info('Using the "time till flip" kernel')
         logger.info('time step: ' + str(self.timeStep) + ' seconds')
         logger.info('error tolerance: ' + str(self.errorTolerance))
         logger.info('amount of time already computed: ' + str(timeAlreadyExecuted) + ' seconds')
@@ -212,7 +218,7 @@ class DoublePendulumCudaSimulator:
                                                                                    # block=(4, 4, 1), grid=(4, 4))
                                                                                    # block=(8, 8, 1), grid=(8, 8))
                                                                                    block=(16, 16, 1), grid=(16, 16))
-                                                                                       # block=(32, 32, 1), grid=(32, 32))
+                                                                                   # block=(32, 32, 1), grid=(32, 32))
 
         # Print the time it took to run the kernel.
         timeToExecuteLastKernel = time.time() - kernelStart
@@ -244,6 +250,88 @@ class DoublePendulumCudaSimulator:
         blueArray = Image.fromarray(colors[2])
         imageWithoutAntiAliasing = Image.merge('RGB', (redArray, greenArray, blueArray))
         image = imageWithoutAntiAliasing.resize((self.imageResolutionPixelsWidth, self.imageResolutionPixelsHeight), Image.LANCZOS)
+        logger.info('Finished creating image')
+
+        return image
+
+
+    def compute_new_pendulum_states_amount_of_chaos_adaptive_step_size_method(self, currentStates, amountOfChaos, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
+        logger.info('Computing new pendulum states with ' + str(self.algorithm.name) + ' method')
+        logger.info('Using the "amount of chaos" kernel')
+        logger.info('time step: ' + str(self.timeStep) + ' seconds')
+        logger.info('error tolerance: ' + str(self.errorTolerance))
+        logger.info('amount of time already computed: ' + str(timeAlreadyExecuted) + ' seconds')
+        logger.info('max time to see if pendulum flips: ' + str(maxTimeToExecute) + ' seconds')
+        logger.info('amount of time to simulate: ' + str(maxTimeToExecute - timeAlreadyExecuted) + ' seconds')
+
+        # Compute the double pendulum fractal image.
+        logger.info('Running pendulum simulation kernel...')
+        kernelStart = time.time()
+
+        self.computeDoublePendulumFractalWithAmountOfChaosMethod(self.npFloatType(self.point1Mass), self.npFloatType(self.point2Mass),
+                                                                 self.npFloatType(self.pendulum1Length), self.npFloatType(self.pendulum2Length),
+                                                                 self.npFloatType(self.gravity),
+                                                                 self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                                 self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                                 cuda.InOut(currentStates),
+                                                                 cuda.In(amountOfChaos),
+                                                                 np.int32(startFromDefaultState),
+                                                                 self.npFloatType(timeAlreadyExecuted),
+                                                                 np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                                 self.npFloatType(self.timeStep),
+                                                                 self.npFloatType(self.errorTolerance),
+                                                                 self.npFloatType(maxTimeToExecute),
+                                                                 # block=(1, 1, 1), grid=(1, 1))
+                                                                 # block=(2, 2, 1), grid=(1, 1))
+                                                                 # block=(4, 4, 1), grid=(4, 4))
+                                                                 # block=(8, 8, 1), grid=(8, 8))
+                                                                 block=(16, 16, 1), grid=(16, 16))
+                                                                 # block=(32, 32, 1), grid=(32, 32))
+
+        # Print the time it took to run the kernel.
+        timeToExecuteLastKernel = time.time() - kernelStart
+        logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
+
+
+    def create_image_from_amount_of_chaos(self, currentStates, amountOfChaos, differenceCutoff):
+        logger.info('Creating image from time till flip...')
+        logger.info('differenceCutoff = ' + str(differenceCutoff))
+
+        # Run a kernel to compute the colors from the time step counts.
+        self.computeAmountOfChaos(cuda.In(currentStates),
+                                  cuda.InOut(amountOfChaos),
+                                  np.int32(self.numberOfAnglesToTestX),
+                                  np.int32(self.numberOfAnglesToTestY),
+                                  self.npFloatType(differenceCutoff),
+                                  block=(16, 16, 1), grid=(16, 16))
+
+        # Remove the border rows and columns from the amount of chaos array.
+        amountOfChaosWithBordersRemoved = np.delete(amountOfChaos, (0, self.numberOfAnglesToTestX-1), 0)
+        amountOfChaosWithBordersRemoved = np.delete(amountOfChaosWithBordersRemoved, (0, self.numberOfAnglesToTestY-1), 1)
+
+        # Create an image from the amount of chaos.
+        fig, ax = plt.subplots(figsize=((self.numberOfAnglesToTestX - 2)/100, (self.numberOfAnglesToTestY - 2)/100), frameon=False)
+        plt.imshow(amountOfChaosWithBordersRemoved, cmap='hot', interpolation='nearest')
+
+        plt.gca().set_axis_off()
+        plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
+                            hspace=0, wspace=0)
+        plt.margins(0, 0)
+        plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+        fig.canvas.draw()
+
+        # Get the RGBA buffer from the figure
+        w, h = fig.canvas.get_width_height()
+        buf = np.fromstring(fig.canvas.tostring_argb(), dtype=np.uint8)
+        buf.shape = (w, h, 4)
+
+        # canvas.tostring_argb give pixmap in ARGB mode. Roll the ALPHA channel to have it in RGBA mode
+        buf = np.roll(buf, 3, axis=2)
+        w, h, d = buf.shape
+        imageWithoutAntiAliasing = Image.frombytes("RGBA", (w, h), buf.tobytes())
+        image = imageWithoutAntiAliasing.resize((self.imageResolutionPixelsWidth - 2, self.imageResolutionPixelsHeight - 2), Image.LANCZOS)
         logger.info('Finished creating image')
 
         return image
