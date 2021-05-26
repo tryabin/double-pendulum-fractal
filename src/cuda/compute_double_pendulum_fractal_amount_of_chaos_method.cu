@@ -98,19 +98,24 @@ __global__ void compute_amount_of_chaos(PendulumState* pendulumStates,
             // four surrounding pixels, up, down, left, right.
             int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
             FloatType centralAngle1 = pendulumStates[pixelIndex].angle1;
+            FloatType centralAngle2 = pendulumStates[pixelIndex].angle2;
             FloatType averageAbsoluteDifference = 0;
 
             // Up
-            averageAbsoluteDifference += abs(centralAngle1 - pendulumStates[(totalNumberOfAnglesToTestY - y - 2)*totalNumberOfAnglesToTestX + x].angle1);
+            PendulumState curSidePendulum = pendulumStates[(totalNumberOfAnglesToTestY - y - 2)*totalNumberOfAnglesToTestX + x];
+            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
 
             // Down
-            averageAbsoluteDifference += abs(centralAngle1 - pendulumStates[(totalNumberOfAnglesToTestY - y)*totalNumberOfAnglesToTestX + x].angle1);
+            curSidePendulum = pendulumStates[(totalNumberOfAnglesToTestY - y)*totalNumberOfAnglesToTestX + x];
+            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
 
             // Left
-            averageAbsoluteDifference += abs(centralAngle1 - pendulumStates[pixelIndex - 1].angle1);
+            curSidePendulum = pendulumStates[pixelIndex - 1];
+            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
 
             // Right
-            averageAbsoluteDifference += abs(centralAngle1 - pendulumStates[pixelIndex + 1].angle1);
+            curSidePendulum = pendulumStates[pixelIndex + 1];
+            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
 
             // Compute a quantitative value for the chaos at the current pixel from the average absolute difference.
             averageAbsoluteDifference /= 4.0;

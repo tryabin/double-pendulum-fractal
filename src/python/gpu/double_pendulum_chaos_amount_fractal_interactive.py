@@ -20,12 +20,12 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
     maxTimeToSimulateFactor = 2
     timeStepFactor = 2
     errorToleranceFactor = 2
-    maxTimeSimulateSeconds = 2**5
+    maxTimeSimulateSeconds = 2**7
     differenceCutoff = 1e-0
 
     # Other parameters
     deviceNumberToUse = 1  # The GPU to use to run the simulation.
-    useDoublePrecision = True # The type of floating point arithmetic to use in the simulation.
+    useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
     # algorithm = SimulationAlgorithm.RKF_45
     # algorithm = SimulationAlgorithm.CASH_KARP_45
     # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
@@ -46,10 +46,10 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
         self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm)
 
         # The range of pendulum angles.
-        self.simulator.set_angle1_min(-2*pi)
-        self.simulator.set_angle1_max(0)
-        self.simulator.set_angle2_min(0*pi)
-        self.simulator.set_angle2_max(2*pi)
+        # self.simulator.set_angle1_min(-2*pi)
+        # self.simulator.set_angle1_max(0)
+        # self.simulator.set_angle2_min(0*pi)
+        # self.simulator.set_angle2_max(2*pi)
         # self.simulator.set_angle1_min(-3.396454357612266)
         # self.simulator.set_angle1_max(-3.371910665006095)
         # self.simulator.set_angle2_min(1.901448953585222)
@@ -58,6 +58,10 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
         # self.simulator.set_angle1_max(2*pi)
         # self.simulator.set_angle2_min(pi/2)
         # self.simulator.set_angle2_max(2*pi)
+        self.simulator.set_angle1_min(-3*pi)
+        self.simulator.set_angle1_max(-pi)
+        self.simulator.set_angle2_min(-pi)
+        self.simulator.set_angle2_max(pi)
 
         # The width of the image in pixels.
         self.simulator.set_image_width_pixels(1000/2**0)
@@ -70,8 +74,8 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
 
         # Simulation parameters.
         self.simulator.set_time_step(.01/2**2)
-        # self.simulator.set_error_tolerance(1e-8)
-        self.simulator.set_error_tolerance(3.8e-10)
+        self.simulator.set_error_tolerance(1e-8)
+        # self.simulator.set_error_tolerance(3.8e-10)
         self.simulator.set_gravity(1)
         self.simulator.set_point1_mass(1)
         self.simulator.set_point2_mass(1)
