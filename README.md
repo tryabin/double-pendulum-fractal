@@ -1,5 +1,5 @@
 # Double Pendulum Fractal
-A program that simulates many double pendulums on the GPU to produce a fractal image. Written in Python 3.6, and requires PyCuda, Tkinter, NumPy, and CUDA 8+.
+A program that simulates many double pendulums on the GPU to produce a fractal image. Written in Python 3.6, and requires PyCuda, Tkinter, NumPy, and CUDA 8+. The double pendulum is modeled as two point masses connected by rigid, massless rods.
 
 # Usage
 * To create a fractal image, run `src/cuda/gpu/double_pendulum_fractal_interactive.py` or `src/cuda/gpu/double_pendulum_chaos_amount_fractal_interactive.py` from the top directory. Images are saved to the "interactive" directory. 
