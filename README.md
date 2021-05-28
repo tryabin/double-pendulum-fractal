@@ -3,6 +3,10 @@ A program that simulates many double pendulums on the GPU to produce a fractal i
 
 # Usage
 * To create a fractal image, run `src/cuda/gpu/double_pendulum_fractal_interactive.py` or `src/cuda/gpu/double_pendulum_chaos_amount_fractal_interactive.py` from the top directory. Images are saved to the "interactive" directory. 
+ 
+The `double_pendulum_fractal_interactive.py` program colors each pixel based on how much time it took the first pendulum to flip. 
+
+The `double_pendulum_chaos_amount_fractal_interactive.py` program colors each pixel based on how "chaotic" each initial configuration is. The "amount of chaos" for a pendulum is calculated by the average of the absoulte value of the difference between the final angle positions of the pendulum and its four neighbors to the top, bottom, left, and right.
 
 * To zoom in or out, move the mouse over the location where you want to zoom and press the `z` key to zoom-in, or the `x` key to zoom-out. Zooming requires recomputing the entire image.
 
