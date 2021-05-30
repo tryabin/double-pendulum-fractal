@@ -22,7 +22,13 @@ The `double_pendulum_chaos_amount_fractal_interactive.py` program colors each pi
 
 * The `src/cuda/gpu/double_pendulum_fractal_generate_images.py` program can be used to just generate images non-interactively.
 
+## Large images
+### Time till flip
 <p align="center">
   <img src="https://raw.githubusercontent.com/tryabin/double-pendulum-fractal/master/double%20pendulum%20fractal.png" alt="fractal image example" width="500" height="1000"/>
+ </p>
+ 
+ ### Amount of chaos (low energy)
+ <p align="center">
   <img src="https://raw.githubusercontent.com/tryabin/double-pendulum-fractal/master/double%20pendulum%20fractal%20chaos%20amount%20low%20energy.png" alt="fractal image example" width="1000" height="1000"/>
 </p>
