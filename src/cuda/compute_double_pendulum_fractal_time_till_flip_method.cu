@@ -72,6 +72,12 @@ __global__ void compute_double_pendulum_fractal_time_till_flip_from_initial_stat
             FloatType totalTimeExecuted = amountOfTimeAlreadyExecuted;
             bool pendulumFlipped = false;
             while (totalTimeExecuted < maxTimeToSeeIfPendulumFlips) {
+                // If the time to simulate will be reached in the next time step, change the time step to simulate
+                // exactly the total amount of time to simulate.
+                if (totalTimeExecuted + timeStep > maxTimeToSeeIfPendulumFlips) {
+                    timeStep = maxTimeToSeeIfPendulumFlips - totalTimeExecuted;
+                }
+
                 // Compute one time step of the pendulum simulation.
                 AdaptiveStepSizeResult result = compute_double_pendulum_step_with_adaptive_step_size_method(pendulumState, u, length1, length2, g, timeStep, errorTolerance);
                 pendulumState = result.pendulumState;
