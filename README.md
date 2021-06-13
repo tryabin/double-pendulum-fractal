@@ -1,8 +1,12 @@
 # Double Pendulum Fractal
-A program that simulates many double pendulums on the GPU to produce a fractal image. Written in Python 3.6, and requires PyCuda, Tkinter, NumPy, and CUDA 8+.
+A program that simulates many double pendulums on the GPU to produce a fractal image. Written in Python 3.6, and requires PyCuda, Tkinter, NumPy, and CUDA 8+. The double pendulum is modeled as two point masses connected by rigid, massless rods.
 
 # Usage
 * To create a fractal image, run `src/cuda/gpu/double_pendulum_fractal_interactive.py` or `src/cuda/gpu/double_pendulum_chaos_amount_fractal_interactive.py` from the top directory. Images are saved to the "interactive" directory. 
+ 
+The `double_pendulum_fractal_interactive.py` program colors each pixel based on how much time it took the first pendulum to flip. 
+
+The `double_pendulum_chaos_amount_fractal_interactive.py` program colors each pixel based on how "chaotic" each initial configuration is. The "amount of chaos" for a pendulum is calculated by the average of the absoulte value of the difference between the final angle positions of the pendulum and its four neighbors to the top, bottom, left, and right.
 
 * To zoom in or out, move the mouse over the location where you want to zoom and press the `z` key to zoom-in, or the `x` key to zoom-out. Zooming requires recomputing the entire image.
 
@@ -18,7 +22,13 @@ A program that simulates many double pendulums on the GPU to produce a fractal i
 
 * The `src/cuda/gpu/double_pendulum_fractal_generate_images.py` program can be used to just generate images non-interactively.
 
+## Large images
+### Time till flip
 <p align="center">
   <img src="https://raw.githubusercontent.com/tryabin/double-pendulum-fractal/master/double%20pendulum%20fractal.png" alt="fractal image example" width="500" height="1000"/>
+ </p>
+ 
+ ### Amount of chaos (low energy)
+ <p align="center">
   <img src="https://raw.githubusercontent.com/tryabin/double-pendulum-fractal/master/double%20pendulum%20fractal%20chaos%20amount%20low%20energy.png" alt="fractal image example" width="1000" height="1000"/>
 </p>
