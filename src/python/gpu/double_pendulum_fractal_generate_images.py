@@ -2,117 +2,77 @@ import logging
 import os
 import random
 import sys
-from math import pi
+import time
+from math import pi, log, exp, inf
 from pathlib import Path
 
 import numpy as np
 
 from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm, ADAPTIVE_STEP_SIZE_METHODS
-from gpu.utils import save_image_to_file, create_directory
+from gpu.utils import save_image_to_file, create_directory, create_video_from_images
 
-logger = logging.getLogger('root')
+logger = logging.getLogger(__name__)
 
 class GenerateDoublePendulumFractalImages:
 
-    # Configuration
-    deviceNumberToUse = 0
-    useDoublePrecision = False
-    # algorithm = SimulationAlgorithm.RK_4
-    # algorithm = SimulationAlgorithm.RKF_45
-    # algorithm = SimulationAlgorithm.CASH_KARP_45
-    # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
-    algorithm = SimulationAlgorithm.FEHLBERG_87
-    
     # Used to color the image based on how long it took a pendulum to flip.
     redScale = 1
     greenScale = 4
     blueScale = 7.2
     shift = .11/9.81*pi
 
-    def __init__(self, directoryToSaveData):
+    def __init__(self, simulator : DoublePendulumCudaSimulator):
+
+        # The object used to run the CUDA kernels.
+        self.simulator = simulator
+        
         # The directory used to store the image and pendulum data files.
-        self.directoryToSaveData = directoryToSaveData
-        Path(directoryToSaveData).mkdir(parents=True, exist_ok=True)
+        self.directoryToSaveData = simulator.get_directory_to_save_data()
+        Path(self.directoryToSaveData).mkdir(parents=True, exist_ok=True)
 
         # Initialize the logger.
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
 
-        # Initialize the simulator.
-        self.initialize_simulator()
-
-
-    def initialize_simulator(self):
-
-        self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm)
-
-        # The range of pendulum angles.
-        # self.simulator.set_angle1_min(-3/2*pi)
-        # self.simulator.set_angle1_max(-1/2*pi)
-        # self.simulator.set_angle2_min(0*pi)
-        # self.simulator.set_angle2_max(2*pi)
-        self.simulator.set_angle1_min(-3.396454357612266)
-        self.simulator.set_angle1_max(-3.371910665006095)
-        self.simulator.set_angle2_min(1.901448953585222)
-        self.simulator.set_angle2_max(1.925992646191392)
-
-        # The width of the image in pixels.
-        self.simulator.set_image_width_pixels(int(1000/2**0))
-
-        # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
-        # 1 means no anti-aliasing.
-        # 2 means four total samples are used per pixel.
-        # 3 means nine total samples are used per pixel, etc.
-        self.simulator.set_anti_aliasing_amount(1)
-
-        # Simulation parameters.
-        self.simulator.set_time_step(.01/2**2)
-        self.simulator.set_error_tolerance(3.8e-12)
-        self.simulator.set_gravity(1)
-        self.simulator.set_point1_mass(1)
-        self.simulator.set_point2_mass(1)
-        self.simulator.set_pendulum1_length(1)
-        self.simulator.set_pendulum2_length(1)
-
 
     def generate_images_from_scratch(self, numImagesToCreate, maxTimeToExecuteInTotal, simulationTimeBetweenSaves):
         initialStates = np.zeros((4, self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(self.simulator.npFloatType))
         firstImageComputed = False
 
-        if self.algorithm is SimulationAlgorithm.RK_4:
+        if simulator.algorithm is SimulationAlgorithm.RK_4:
             numTimeStepsTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), np.dtype(np.int32))
             maxTimeStepsToExecuteInTotal = maxTimeToExecuteInTotal/self.simulator.timeStep
-            self.generate_images_rk4(self.directoryToSaveData, numImagesToCreate, initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
+            self.generate_images_time_till_flip_rk4(self.directoryToSaveData, numImagesToCreate, initialStates, numTimeStepsTillFlip, 0, maxTimeStepsToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
 
-        elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
+        elif simulator.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             timeTillFlip = np.zeros((self.simulator.numberOfAnglesToTestY, self.simulator.numberOfAnglesToTestX), self.simulator.npFloatType)
-            self.generate_images_adaptive_time_step(self.directoryToSaveData, numImagesToCreate, initialStates, timeTillFlip, 0, maxTimeToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
+            self.generate_images_time_till_flip_adaptive_time_step(self.directoryToSaveData, numImagesToCreate, initialStates, timeTillFlip, 0, maxTimeToExecuteInTotal, firstImageComputed, simulationTimeBetweenSaves)
 
 
-    def generate_images_from_save(self, numImagesToCreate, saveFile, simulationTimeBetweenSaves):
+    def generate_images_from_save_time_till_flip_method(self, numImagesToCreate, saveFile, simulationTimeBetweenSaves):
         directory = os.path.dirname(saveFile)
-        loaded = np.load(saveFile)
-        initialStates = loaded['initialStates']
+        savedData = np.load(saveFile)
+        initialStates = savedData['initialStates']
         firstImageComputed = True
 
-        if self.algorithm is SimulationAlgorithm.RK_4:
-            numTimeStepsTillFlipData = loaded['numTimeStepsTillFlipData']
-            numTimeStepsAlreadyExecuted = loaded['numTimeStepsAlreadyExecuted'][0]
+        if simulator.algorithm is SimulationAlgorithm.RK_4:
+            numTimeStepsTillFlipData = savedData['numTimeStepsTillFlipData']
+            numTimeStepsAlreadyExecuted = savedData['numTimeStepsAlreadyExecuted'][0]
             maxTimeStepsToExecute = 2*numTimeStepsAlreadyExecuted
-            self.generate_images_rk4(directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves)
+            self.generate_images_time_till_flip_rk4(directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves)
 
-        elif self.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
-            timeTillFlipData = loaded['timeTillFlipData']
-            timeAlreadyExecuted = loaded['timeAlreadyExecuted'][0]
+        elif simulator.algorithm in ADAPTIVE_STEP_SIZE_METHODS:
+            timeTillFlipData = savedData['timeTillFlipData']
+            timeAlreadyExecuted = savedData['timeAlreadyExecuted'][0]
             maxTimeToExecute = 2*timeAlreadyExecuted
-            self.generate_images_adaptive_time_step(directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves)
+            self.generate_images_time_till_flip_adaptive_time_step(directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves)
 
 
-    def generate_images_rk4(self, directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves):
+    def generate_images_time_till_flip_rk4(self, directory, numImagesToCreate, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves):
         for i in range(0, numImagesToCreate):
             saveFilePath = directory + '/saved_data_for_kernel_run'
-            self.generate_image_rk4(saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves)
+            self.generate_image_time_till_flip_rk4(saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves)
             logger.info('')
 
             numTimeStepsAlreadyExecuted = maxTimeStepsToExecute
@@ -120,10 +80,10 @@ class GenerateDoublePendulumFractalImages:
             firstImageComputed = True
 
 
-    def generate_images_adaptive_time_step(self, directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves):
+    def generate_images_time_till_flip_adaptive_time_step(self, directory, numImagesToCreate, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves):
         for i in range(0, numImagesToCreate):
             saveFilePath = directory + '/saved_data_for_kernel_run'
-            self.generate_image_adaptive_step_size_method(saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves)
+            self.generate_image_time_till_flip_adaptive_step_size_method(saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves)
             logger.info('')
 
             timeAlreadyExecuted = maxTimeToExecute
@@ -131,7 +91,7 @@ class GenerateDoublePendulumFractalImages:
             firstImageComputed = True
 
 
-    def generate_image_rk4(self, saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves):
+    def generate_image_time_till_flip_rk4(self, saveFilePath, initialStates, numTimeStepsTillFlipData, numTimeStepsAlreadyExecuted, maxTimeStepsToExecute, firstImageComputed, simulationTimeBetweenSaves):
         # Run the kernel the given amount of simulation time between saves, saving after each run.
         simulationTimeStepsToExecuteForImage = maxTimeStepsToExecute - numTimeStepsAlreadyExecuted
         simulationTimeStepsBetweenSaves = min(simulationTimeStepsToExecuteForImage, simulationTimeBetweenSaves/self.simulator.timeStep)
@@ -153,7 +113,7 @@ class GenerateDoublePendulumFractalImages:
         return image
 
 
-    def generate_image_adaptive_step_size_method(self, saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves):
+    def generate_image_time_till_flip_adaptive_step_size_method(self, saveFilePath, initialStates, timeTillFlipData, timeAlreadyExecuted, maxTimeToExecute, firstImageComputed, simulationTimeBetweenSaves):
         # Run the kernel the given amount of simulation time between saves, saving after each run.
         simulationTimeToExecuteForImage = maxTimeToExecute - timeAlreadyExecuted
         simulationTimeBetweenSaves = min(simulationTimeBetweenSaves, simulationTimeToExecuteForImage)
@@ -176,9 +136,6 @@ class GenerateDoublePendulumFractalImages:
 
 
     def generate_random_color_images(self, numImagesToCreate, maxTimeToSeeIfPendulumFlipsSeconds):
-        # self.algorithm = SimulationAlgorithm.FEHLBERG_87
-        self.initialize_simulator()
-
         # Generate the images.
         for i in range(0, numImagesToCreate):
             # Run the kernel.
@@ -198,14 +155,161 @@ class GenerateDoublePendulumFractalImages:
             logger.info('')
 
 
-if __name__ == "__main__":
-    app = GenerateDoublePendulumFractalImages(create_directory())
-    # app = GenerateDoublePendulumFractalImages('./tmp')
+    def generate_chaos_amount_image_from_scratch(self, totalSimulationTime, simulationTimeBetweenComputingChaosAmount, differenceCutoff):
+        # Initialize data structures
+        currentStates = np.zeros((4, app.simulator.numberOfAnglesToTestY, app.simulator.numberOfAnglesToTestX), np.dtype(app.simulator.npFloatType))
+        chaosAmountData = -1*np.ones((app.simulator.numberOfAnglesToTestY, app.simulator.numberOfAnglesToTestX), np.dtype(app.simulator.npFloatType))
+        return self.generate_chaos_amount_image(currentStates, chaosAmountData, totalSimulationTime, simulationTimeBetweenComputingChaosAmount, differenceCutoff)
 
-    # Run the program to generate double pendulum fractal images.
-    app.generate_images_from_scratch(15, 2**8, 2**15)
-    # app.generate_random_color_images(10, 2**4)
-    # app.generate_images_from_save(1, './tmp/saved_data_for_kernel_run.npz', 2**8)
+
+    def generate_chaos_amount_image(self, currentStates, chaosAmountData, totalSimulationTime, simulationTimeBetweenComputingChaosAmount, differenceCutoff, timeAlreadySimulated=0):
+        # Run the simulation
+        improvementCutoff = 1.1
+        minKernelTimeSeconds = 5
+        firstIterationRuntime = inf
+        previousSimulationRuntime = inf
+        simulateTillEnd = False
+        startTimeToGenerateImage = time.time()
+        while timeAlreadySimulated < totalSimulationTime:
+            # Compute the amount of time to simulate on this loop. If there will be negligible gain from
+            # computing the amount of chaos in between then just simulate till the end.
+            curTimeToSimulate = min(simulationTimeBetweenComputingChaosAmount, totalSimulationTime - timeAlreadySimulated)
+            if simulateTillEnd:
+                curTimeToSimulate = totalSimulationTime - timeAlreadySimulated
+
+            # Run the simulation for this iteration
+            start = time.time()
+            self.simulator.compute_new_pendulum_states_amount_of_chaos_adaptive_step_size_method(currentStates, chaosAmountData, timeAlreadySimulated, timeAlreadySimulated + curTimeToSimulate, timeAlreadySimulated == 0)
+            curSimulationRuntime = time.time() - start
+
+            # Compute the chaos amount
+            self.simulator.compute_chaos_amount_from_pendulum_states(currentStates, chaosAmountData, differenceCutoff)
+            timeAlreadySimulated += curTimeToSimulate
+
+            # See if there was a negligible performance gain from the last run.
+            runtimeRatioFromPreviousRun = previousSimulationRuntime/curSimulationRuntime
+            runtimeRatioFromFirstRun = firstIterationRuntime/curSimulationRuntime
+            if runtimeRatioFromPreviousRun < improvementCutoff < runtimeRatioFromFirstRun:
+                simulateTillEnd = True
+
+            # Store the runtimes
+            if firstIterationRuntime == inf:
+                firstIterationRuntime = curSimulationRuntime
+            previousSimulationRuntime = curSimulationRuntime
+
+            # Increase the time to simulate to meet the minimum runtime threshold.
+            if curSimulationRuntime < minKernelTimeSeconds:
+                simulationTimeBetweenComputingChaosAmount = minKernelTimeSeconds/curSimulationRuntime*curTimeToSimulate
+
+        image = self.simulator.create_image_from_amount_of_chaos(currentStates, chaosAmountData, differenceCutoff)
+        logger.info('Image generated in ' + str(time.time() - startTimeToGenerateImage) + ' seconds')
+        return image
+
+
+    def generate_zoom_in_video_chaos_amount_method(self):
+        # Setup
+        differenceCutoff = 1e-0
+        fps = 5
+        totalZoomTimeSeconds = 4
+        totalNumberOfImages = fps*totalZoomTimeSeconds
+        initialBoxWidth = pi
+        initialBoxCenterX = pi
+        initialBoxCenterY = pi
+        initialMaxTimeToSimulate = 2**3
+        finalBoxWidth = 2e-5
+        finalBoxCenterX = 3.3537026965490882
+        finalBoxCenterY = 3.2536503336400364
+        finalMaxTimeToSimulate = 2**8 + 2**6
+        zoomFactor = exp(log(finalBoxWidth / initialBoxWidth) / (totalNumberOfImages - 1))
+        maxTimeFactor = exp(log(finalMaxTimeToSimulate / initialMaxTimeToSimulate) / (totalNumberOfImages - 1))
+        centerXFactor = exp(log(finalBoxCenterX / initialBoxCenterX) / (totalNumberOfImages - 1))
+        centerYFactor = exp(log(finalBoxCenterY / initialBoxCenterY) / (totalNumberOfImages - 1))
+
+        # This is used to avoid simulating pendulums that have already gone chaotic. It is the max amount
+        # of time to simulate per kernel run before running the kernel to compute the chaos amount, at which
+        # time pendulums that have gone chaotic are marked so they don't continue to be simulated.
+        simulationTimeBetweenComputingChaosAmount = 2**3
+
+        logger.info('Generating images for zoom sequence...')
+        logger.info('fps = ' + str(fps))
+        logger.info('total zoom time seconds = ' + str(totalZoomTimeSeconds))
+        logger.info('total number of images = ' + str(totalNumberOfImages))
+        logger.info('initial box width = ' + str(initialBoxWidth))
+        logger.info('initial box center = (' + str(initialBoxCenterX) + ', ' + str(initialBoxCenterY) + ')')
+        logger.info('initial max time to simulate seconds = ' + str(initialMaxTimeToSimulate))
+        logger.info('final box width = ' + str(finalBoxWidth))
+        logger.info('final box center = (' + str(finalBoxCenterX) + ', ' + str(finalBoxCenterY) + ')')
+        logger.info('final max time to simulate seconds = ' + str(finalMaxTimeToSimulate))
+        logger.info('zoom factor = ' + str(zoomFactor))
+        logger.info('max time factor = ' + str(maxTimeFactor))
+        logger.info('center x factor = ' + str(centerXFactor))
+        logger.info('center y factor = ' + str(centerYFactor))
+        logger.info('difference cutoff = ' + str(differenceCutoff))
+        logger.info('simulationTimeBetweenComputingChaosAmount seconds = ' + str(simulationTimeBetweenComputingChaosAmount))
+
+        # Generate the images
+        for i in range(totalNumberOfImages):
+            logger.info('Generating image ' + str(i + 1) + ' of ' + str(totalNumberOfImages))
+
+            # Compute the zoomed-in bounding box
+            newWidth = initialBoxWidth*zoomFactor**i
+            self.simulator.set_angle1_min(finalBoxCenterX - newWidth/2)
+            self.simulator.set_angle1_max(finalBoxCenterX + newWidth/2)
+            self.simulator.set_angle2_min(finalBoxCenterY - newWidth/2)
+            self.simulator.set_angle2_max(finalBoxCenterY + newWidth/2)
+
+            # Simulate the pendulums
+            curMaxTimeToSimulate = initialMaxTimeToSimulate*maxTimeFactor**i
+            image = self.generate_chaos_amount_image_from_scratch(curMaxTimeToSimulate, simulationTimeBetweenComputingChaosAmount, differenceCutoff)
+            imageFileName = f'{i:04}' + '.png'
+            image.save(os.path.join(self.directoryToSaveData, imageFileName))
+
+            logger.info('')
+
+        # Convert the images into an mp4 video
+        videoName = 'chaos amount zoom video_' + str(finalBoxCenterX) + '-' + str(finalBoxCenterY)
+        logger.info('Creating video from images...')
+        create_video_from_images(self.directoryToSaveData, videoName, fps)
+        logger.info('Finished creating video ' + videoName)
+
+
+if __name__ == "__main__":
+
+    # Configuration
+    directoryToSaveData = create_directory()
+    deviceNumberToUse = 0
+    useDoublePrecision = True
+    # algorithm = SimulationAlgorithm.RK_4
+    # algorithm = SimulationAlgorithm.RKF_45
+    # algorithm = SimulationAlgorithm.CASH_KARP_45
+    # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    algorithm = SimulationAlgorithm.FEHLBERG_87
+    simulator = DoublePendulumCudaSimulator(deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, None)
+
+    # The dimensions of the image in pixels.
+    simulator.set_image_width_pixels(int(1000/2**0))
+    simulator.set_image_height_pixels(simulator.imageResolutionWidthPixels)
+
+    # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
+    # 1 means no anti-aliasing.
+    # 2 means four total samples are used per pixel.
+    # 3 means nine total samples are used per pixel, etc.
+    simulator.set_anti_aliasing_amount(1)
+
+    # Simulation parameters.
+    simulator.set_time_step(.01/2**2)
+    simulator.set_error_tolerance(1e-11)
+    simulator.set_gravity(1)
+    simulator.set_point1_mass(1)
+    simulator.set_point2_mass(1)
+    simulator.set_pendulum1_length(1)
+    simulator.set_pendulum2_length(1)
+
+    # Create the object to generate images.
+    app = GenerateDoublePendulumFractalImages(simulator)
+
+    # Generate a chaos amount zoom in video.
+    app.generate_zoom_in_video_chaos_amount_method()
 
 
 

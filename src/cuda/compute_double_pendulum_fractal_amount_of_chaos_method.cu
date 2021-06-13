@@ -94,9 +94,14 @@ __global__ void compute_amount_of_chaos(PendulumState* pendulumStates,
                 continue;
             }
 
+            // Skip pixels that have already been determined to be chaotic.
+            int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
+            if (amountOfChaos[pixelIndex] == CHAOTIC) {
+                continue;
+            }
+
             // Compute the average absolute difference for angle1 between the current pixel and the
             // four surrounding pixels, up, down, left, right.
-            int pixelIndex = (totalNumberOfAnglesToTestY - y - 1)*totalNumberOfAnglesToTestX + x;
             FloatType centralAngle1 = pendulumStates[pixelIndex].angle1;
             FloatType centralAngle2 = pendulumStates[pixelIndex].angle2;
             FloatType averageAbsoluteDifference = 0;
@@ -119,7 +124,7 @@ __global__ void compute_amount_of_chaos(PendulumState* pendulumStates,
 
             // Compute a quantitative value for the chaos at the current pixel from the average absolute difference.
             averageAbsoluteDifference /= 4.0;
-            FloatType currentChaosValue = averageAbsoluteDifference > differenceCutoff ? 0 :  -log(averageAbsoluteDifference)*10;
+            FloatType currentChaosValue = averageAbsoluteDifference > differenceCutoff ? CHAOTIC : -log(averageAbsoluteDifference)*10;
             amountOfChaos[pixelIndex] = currentChaosValue;
         }
     }

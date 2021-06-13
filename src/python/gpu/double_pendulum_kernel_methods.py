@@ -12,8 +12,7 @@ import matplotlib.pyplot as plt
 
 from utils import read_file
 
-logger = logging.getLogger('root')
-
+logger = logging.getLogger(__name__)
 
 class SimulationAlgorithm(enum.Enum):
    RK_4 = 1
@@ -32,7 +31,16 @@ class DoublePendulumCudaSimulator:
     # 3 means nine total samples are used per pixel, etc.
     antiAliasingAmount = 1
 
-    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, maxRegistersToUse=80):
+    # Default optimal max register counts for the kernels
+    optimalMaxRegisterCountTimeTillFlipKernel = 80
+    optimalMexRegisterCountAmountOfChaosKernel = 76
+
+    def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, maxRegistersToUse):
+
+        # The Fehlberg 8(7) doesn't work well with 32-bit floating point precision.
+        if not useDoublePrecision and algorithm is SimulationAlgorithm.FEHLBERG_87:
+            sys.exit('Can\'t use Fehlberg 8(7) algorithm with 32-bit precision, not enough precision for 8th order method, exiting...')
+
         # Initialize the CUDA driver.
         cuda.init()
         self.device = cuda.Device(deviceNumberToUse)
@@ -40,21 +48,31 @@ class DoublePendulumCudaSimulator:
 
         # Initialize the logger.
         self.directoryToSaveData = directoryToSaveData
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
-        self.logger.addHandler(logging.StreamHandler(sys.stdout))
-        self.logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler(sys.stdout))
+        logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log'))
         logger.info('GPU being used: ' + self.device.name())
 
         # Configure the options to send to the nvcc compiler.
         options = ['-DFLOAT_64'] if useDoublePrecision else ['-DFLOAT_32']
-        # The max register count, used for performance optimization.
-        if useDoublePrecision:
-            options.append('-maxrregcount=' + str(maxRegistersToUse))
         # The Runge-Kutta algorithm to use in the kernel.
         if algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             options.append('-D' + str(algorithm.name))
+
+        # The max register count, used for performance optimization.
+        timeTillFlipKernelOptions = options.copy()
+        amountOfChaosKernelOptions = options.copy()
+        if useDoublePrecision:
+            if maxRegistersToUse is not None:
+                timeTillFlipKernelOptions.append('-maxrregcount=' + str(maxRegistersToUse))
+                amountOfChaosKernelOptions.append('-maxrregcount=' + str(maxRegistersToUse))
+            else:
+                timeTillFlipKernelOptions.append('-maxrregcount=' + str(self.optimalMaxRegisterCountTimeTillFlipKernel))
+                amountOfChaosKernelOptions.append('-maxrregcount=' + str(self.optimalMexRegisterCountAmountOfChaosKernel))
+
         logger.info('options = ' + str(options))
+        logger.info('timeTillFlipKernelOptions = ' + str(timeTillFlipKernelOptions))
+        logger.info('amountOfChaosKernelOptions = ' + str(amountOfChaosKernelOptions))
 
         # Initialize the kernels.
         self.npFloatType = np.float64 if useDoublePrecision else np.float32
@@ -62,17 +80,23 @@ class DoublePendulumCudaSimulator:
         self.algorithm = algorithm
         if algorithm is SimulationAlgorithm.RK_4:
             timeTillFlipMethodKernelFile = 'src/cuda/rk4.cu'
-            self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
+            self.computeDoublePendulumFractalFromInitialStatesRK4Function = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=timeTillFlipKernelOptions).get_function('compute_double_pendulum_fractal_steps_till_flip_from_initial_states')
             self.computeColorsFromStepsTillFlip = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_steps_till_flip')
         elif algorithm in ADAPTIVE_STEP_SIZE_METHODS:
             timeTillFlipMethodKernelFile = 'src/cuda/compute_double_pendulum_fractal_time_till_flip_method.cu'
-            self.computeDoublePendulumFractalWithTimeTillFlipMethodAndAdaptiveStepSize = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
+            self.computeDoublePendulumFractalWithTimeTillFlipMethodAndAdaptiveStepSize = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=timeTillFlipKernelOptions).get_function('compute_double_pendulum_fractal_time_till_flip_from_initial_states')
             self.computeColorsFromTimeTillFlip = SourceModule(read_file(timeTillFlipMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_colors_from_time_till_flip')
 
             amountOfChaosMethodKernelFile = 'src/cuda/compute_double_pendulum_fractal_amount_of_chaos_method.cu'
-            self.computeDoublePendulumFractalWithAmountOfChaosMethod = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_double_pendulum_fractal_amount_of_chaos_method')
+            self.computeDoublePendulumFractalWithAmountOfChaosMethod = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=amountOfChaosKernelOptions).get_function('compute_double_pendulum_fractal_amount_of_chaos_method')
             self.computeAmountOfChaos = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_amount_of_chaos')
 
+
+    def get_directory_to_save_data(self):
+        return self.directoryToSaveData
+
+    def set_directory_to_save_data(self, directoryToSaveData):
+        self.directoryToSaveData = directoryToSaveData
 
     def set_angle1_min(self, value):
         self.angle1Min = value
@@ -87,13 +111,23 @@ class DoublePendulumCudaSimulator:
         self.angle2Max = value
 
     def set_image_width_pixels(self, width):
-        self.imageResolutionPixelsWidth = int(width)
-        self.imageResolutionPixelsHeight = int(round(self.imageResolutionPixelsWidth*(self.angle2Max - self.angle2Min)/(self.angle1Max - self.angle1Min)))
+        self.imageResolutionWidthPixels = width
+        self.numberOfAnglesToTestX = int(round(self.imageResolutionWidthPixels*self.antiAliasingAmount))
+
+    def set_image_height_pixels(self, height):
+        self.imageResolutionHeightPixels = height
+        self.numberOfAnglesToTestY = int(round(self.imageResolutionHeightPixels*self.antiAliasingAmount))
+
+    def set_image_dimensions_based_on_width(self, width):
+        self.imageResolutionWidthPixels = int(width)
+        self.imageResolutionHeightPixels = int(round(self.imageResolutionWidthPixels*(self.angle2Max - self.angle2Min)/(self.angle1Max - self.angle1Min)))
         self.set_number_of_angles_to_test()
 
     def set_number_of_angles_to_test(self):
-        self.numberOfAnglesToTestX = int(round(self.imageResolutionPixelsWidth * self.antiAliasingAmount))
-        self.numberOfAnglesToTestY = int(round(self.imageResolutionPixelsHeight * self.antiAliasingAmount))
+        if self.imageResolutionWidthPixels is not None:
+            self.numberOfAnglesToTestX = int(round(self.imageResolutionWidthPixels*self.antiAliasingAmount))
+        if self.imageResolutionHeightPixels is not None:
+            self.numberOfAnglesToTestY = int(round(self.imageResolutionHeightPixels*self.antiAliasingAmount))
 
     def set_time_step(self, value):
         self.timeStep = value
@@ -181,7 +215,7 @@ class DoublePendulumCudaSimulator:
         greenArray = Image.fromarray(colors[1])
         blueArray = Image.fromarray(colors[2])
         imageWithoutAntiAliasing = Image.merge('RGB', (redArray, greenArray, blueArray))
-        image = imageWithoutAntiAliasing.resize((self.imageResolutionPixelsWidth, self.imageResolutionPixelsHeight), Image.LANCZOS)
+        image = imageWithoutAntiAliasing.resize((self.imageResolutionWidthPixels, self.imageResolutionHeightPixels), Image.LANCZOS)
         logger.info('Finished creating image')
 
         return image
@@ -249,7 +283,7 @@ class DoublePendulumCudaSimulator:
         greenArray = Image.fromarray(colors[1])
         blueArray = Image.fromarray(colors[2])
         imageWithoutAntiAliasing = Image.merge('RGB', (redArray, greenArray, blueArray))
-        image = imageWithoutAntiAliasing.resize((self.imageResolutionPixelsWidth, self.imageResolutionPixelsHeight), Image.LANCZOS)
+        image = imageWithoutAntiAliasing.resize((self.imageResolutionWidthPixels, self.imageResolutionHeightPixels), Image.LANCZOS)
         logger.info('Finished creating image')
 
         return image
@@ -261,7 +295,7 @@ class DoublePendulumCudaSimulator:
         logger.info('time step: ' + str(self.timeStep) + ' seconds')
         logger.info('error tolerance: ' + str(self.errorTolerance))
         logger.info('amount of time already computed: ' + str(timeAlreadyExecuted) + ' seconds')
-        logger.info('max time to see if pendulum flips: ' + str(maxTimeToExecute) + ' seconds')
+        logger.info('max time to simulate: ' + str(maxTimeToExecute) + ' seconds')
         logger.info('amount of time to simulate: ' + str(maxTimeToExecute - timeAlreadyExecuted) + ' seconds')
 
         # Compute the double pendulum fractal image.
@@ -293,6 +327,21 @@ class DoublePendulumCudaSimulator:
         logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
 
 
+    def compute_chaos_amount_from_pendulum_states(self, currentStates, amountOfChaos, differenceCutoff):
+        logger.info('Computing chaos amount data from pendulum states...')
+        logger.info('differenceCutoff = ' + str(differenceCutoff))
+
+        # Run a kernel to compute the chaos amount for each pendulum.
+        start = time.time()
+        self.computeAmountOfChaos(cuda.In(currentStates),
+                                  cuda.InOut(amountOfChaos),
+                                  np.int32(self.numberOfAnglesToTestX),
+                                  np.int32(self.numberOfAnglesToTestY),
+                                  self.npFloatType(differenceCutoff),
+                                  block=(16, 16, 1), grid=(16, 16))
+        logger.info('Computed chaos amount kernel in ' + str(time.time() - start) + ' seconds')
+
+
     def create_image_from_amount_of_chaos(self, currentStates, amountOfChaos, differenceCutoff):
         logger.info('Creating image from time till flip...')
         logger.info('differenceCutoff = ' + str(differenceCutoff))
@@ -309,9 +358,11 @@ class DoublePendulumCudaSimulator:
         amountOfChaosWithBordersRemoved = np.delete(amountOfChaos, (0, self.numberOfAnglesToTestX-1), 0)
         amountOfChaosWithBordersRemoved = np.delete(amountOfChaosWithBordersRemoved, (0, self.numberOfAnglesToTestY-1), 1)
 
+        logger.info('max stability value = ' + str(np.amax(amountOfChaosWithBordersRemoved)))
+
         # Create an image from the amount of chaos.
         fig, ax = plt.subplots(figsize=((self.numberOfAnglesToTestX - 2)/100, (self.numberOfAnglesToTestY - 2)/100), frameon=False)
-        plt.imshow(amountOfChaosWithBordersRemoved, cmap='hot', interpolation='nearest')
+        plt.imshow(amountOfChaosWithBordersRemoved, cmap='hot', interpolation='nearest', vmin=0, vmax=100)
 
         plt.gca().set_axis_off()
         plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
@@ -331,7 +382,7 @@ class DoublePendulumCudaSimulator:
         buf = np.roll(buf, 3, axis=2)
         w, h, d = buf.shape
         imageWithoutAntiAliasing = Image.frombytes("RGBA", (w, h), buf.tobytes())
-        image = imageWithoutAntiAliasing.resize((self.imageResolutionPixelsWidth - 2, self.imageResolutionPixelsHeight - 2), Image.LANCZOS)
+        image = imageWithoutAntiAliasing.resize((self.imageResolutionWidthPixels - 2, self.imageResolutionHeightPixels - 2), Image.LANCZOS)
         logger.info('Finished creating image')
 
         return image

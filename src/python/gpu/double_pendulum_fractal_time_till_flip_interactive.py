@@ -12,7 +12,7 @@ from win32api import GetSystemMetrics
 from double_pendulum_kernel_methods import DoublePendulumCudaSimulator, SimulationAlgorithm, ADAPTIVE_STEP_SIZE_METHODS
 from utils import save_image_to_file
 
-logger = logging.getLogger('root')
+logger = logging.getLogger(__name__)
 
 class DoublePendulumFractalApp(tk.Tk):
     # UI control parameters
@@ -27,23 +27,22 @@ class DoublePendulumFractalApp(tk.Tk):
     useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
     # algorithm = SimulationAlgorithm.RK_4
     # algorithm = SimulationAlgorithm.RKF_45
-    # algorithm = SimulationAlgorithm.CASH_KARP_45
+    algorithm = SimulationAlgorithm.CASH_KARP_45
     # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
-    algorithm = SimulationAlgorithm.FEHLBERG_87
+    # algorithm = SimulationAlgorithm.FEHLBERG_87
 
     def __init__(self):
         tk.Tk.__init__(self)
 
         # Initialize the logger.
-        self.directoryToSaveData = './interactive'
+        self.directoryToSaveData = './interactive time till flip'
         Path(self.directoryToSaveData).mkdir(parents=True, exist_ok=True)
-
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log', mode='w'))
 
         # Initialize the simulator.
-        self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm)
+        self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm, None)
 
         # The range of pendulum angles.
         self.simulator.set_angle1_min(-3/2*pi)
@@ -56,7 +55,7 @@ class DoublePendulumFractalApp(tk.Tk):
         # self.simulator.set_angle2_max(1.925992646191392)
 
         # The width of the image in pixels.
-        self.simulator.set_image_width_pixels(1000/2**1)
+        self.simulator.set_image_dimensions_based_on_width(1000/2**1)
 
         # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
         # 1 means no anti-aliasing.
@@ -77,12 +76,12 @@ class DoublePendulumFractalApp(tk.Tk):
         self.initialize_data()
 
         # Set the window size and position.
-        self.geometry('%dx%d+%d+%d' % (self.simulator.imageResolutionPixelsWidth,
-                                       self.simulator.imageResolutionPixelsHeight,
-                                       GetSystemMetrics(0)/2 - self.simulator.imageResolutionPixelsWidth/2,
-                                       GetSystemMetrics(1)/2 - self.simulator.imageResolutionPixelsHeight/2))
+        self.geometry('%dx%d+%d+%d'%(self.simulator.imageResolutionWidthPixels,
+                                     self.simulator.imageResolutionHeightPixels,
+                                     GetSystemMetrics(0)/2 - self.simulator.imageResolutionWidthPixels/2,
+                                     GetSystemMetrics(1)/2 - self.simulator.imageResolutionHeightPixels/2))
 
-        self.canvas = tk.Canvas(self, width=self.simulator.imageResolutionPixelsWidth, height=self.simulator.imageResolutionPixelsHeight)
+        self.canvas = tk.Canvas(self, width=self.simulator.imageResolutionWidthPixels, height=self.simulator.imageResolutionHeightPixels)
         self.canvas.pack(side='top', fill='both', expand=True)
         self.canvas.bind('z', self.zoom_in)
         self.canvas.bind('x', self.zoom_out)
@@ -96,12 +95,12 @@ class DoublePendulumFractalApp(tk.Tk):
 
 
     def zoom_in(self, event):
-        center1 = (event.x / self.simulator.imageResolutionPixelsWidth) * (self.simulator.angle1Max - self.simulator.angle1Min) + self.simulator.angle1Min
+        center1 = (event.x/self.simulator.imageResolutionWidthPixels)*(self.simulator.angle1Max - self.simulator.angle1Min) + self.simulator.angle1Min
         newWidth = (self.simulator.angle1Max - self.simulator.angle1Min) / self.zoomFactor
         self.simulator.set_angle1_min(center1 -  newWidth/2)
         self.simulator.set_angle1_max(center1 + newWidth/2)
 
-        center2 = (1 - event.y / self.simulator.imageResolutionPixelsHeight) * (self.simulator.angle2Max - self.simulator.angle2Min) + self.simulator.angle2Min
+        center2 = (1 - event.y/self.simulator.imageResolutionHeightPixels)*(self.simulator.angle2Max - self.simulator.angle2Min) + self.simulator.angle2Min
         newHeight = (self.simulator.angle2Max - self.simulator.angle2Min) / self.zoomFactor
         self.simulator.set_angle2_min(center2 - newHeight / 2)
         self.simulator.set_angle2_max(center2 + newHeight / 2)
@@ -112,12 +111,12 @@ class DoublePendulumFractalApp(tk.Tk):
 
 
     def zoom_out(self, event):
-        center1 = (event.x / self.simulator.imageResolutionPixelsWidth) * (self.simulator.angle1Max - self.simulator.angle1Min) + self.simulator.angle1Min
+        center1 = (event.x/self.simulator.imageResolutionWidthPixels)*(self.simulator.angle1Max - self.simulator.angle1Min) + self.simulator.angle1Min
         newWidth = (self.simulator.angle1Max - self.simulator.angle1Min) * self.zoomFactor
         self.simulator.set_angle1_min(center1 -  newWidth/2)
         self.simulator.set_angle1_max(center1 + newWidth/2)
 
-        center2 = (1 - event.y / self.simulator.imageResolutionPixelsHeight) * (self.simulator.angle2Max - self.simulator.angle2Min) + self.simulator.angle2Min
+        center2 = (1 - event.y/self.simulator.imageResolutionHeightPixels)*(self.simulator.angle2Max - self.simulator.angle2Min) + self.simulator.angle2Min
         newHeight = (self.simulator.angle2Max - self.simulator.angle2Min) * self.zoomFactor
         self.simulator.set_angle2_min(center2 - newHeight / 2)
         self.simulator.set_angle2_max(center2 + newHeight / 2)
@@ -218,7 +217,7 @@ class DoublePendulumFractalApp(tk.Tk):
         self.renderedImage = ImageTk.PhotoImage(computedImage)
 
         # Display the image.
-        self.canvas.create_image((self.simulator.imageResolutionPixelsWidth / 2, self.simulator.imageResolutionPixelsHeight / 2), image=self.renderedImage, state='normal')
+        self.canvas.create_image((self.simulator.imageResolutionWidthPixels/2, self.simulator.imageResolutionHeightPixels/2), image=self.renderedImage, state='normal')
 
         logger.info('Total time to draw fractal = ' + str(time.time() - start))
         logger.info('')

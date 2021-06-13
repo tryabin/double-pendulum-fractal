@@ -16,7 +16,7 @@ class PrimaryWindow(pyglet.window.Window):
     # Basic config
     FPS = 60
     timeStep = .01/2**2
-    errorTolerance = 1e-10
+    errorTolerance = 1e-7
     mp.prec = 53
     numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
     simulationAlgorithm = SimulationAlgorithm.RK_4
@@ -48,29 +48,35 @@ class PrimaryWindow(pyglet.window.Window):
     point1AngularVelocity = 0
     point2AngularVelocity = 0
 
-    # 7 o'clock stable area
+    # 7 o'clock "Big Three" stable area
     # minAngle1 = -3.396454357612266
     # maxAngle1 = -3.371910665006095
     # minAngle2 = 1.901448953585222
     # maxAngle2 = 1.925992646191392
 
-    # 2nd mass spins in one direction
-    # minAngle1 = 2.850507319679923
-    # maxAngle1 = 2.8535752812556945
-    # minAngle2 = 2.10120065625985
-    # maxAngle2 = 2.1042686178356216
-
-    # 5 o'clock stable area
-    # minAngle1 = -2.749580795284042
-    # maxAngle1 = -2.7004934100717017
-    # minAngle2 = 1.8155460294636265
-    # maxAngle2 = 1.8646334146759669
-
-    # 9 o'clock stable area
+    # 9 o'clock "Big Three" stable area
     # minAngle1 = -4.0033707883776435
     # maxAngle1 = -3.9051960179529623
     # minAngle2 = 3.2218996157971826
     # maxAngle2 = 3.3200743862218642
+
+    # 11 o'clock "Big Three" stable area
+    # minAngle1 = -3.6061556672393835
+    # maxAngle1 = -3.507980896814703
+    # minAngle2 = 4.390964782014284
+    # maxAngle2 = 4.489139552438965
+
+    # 10 o'clock little brother to "Big Three" stable area
+    # minAngle1 = -4.106454297323556
+    # maxAngle1 = -4.008279526898876
+    # minAngle2 = 4.120198765183015
+    # maxAngle2 = 4.218373535607696
+
+    # 2nd mass spins in one direction
+    minAngle1 = 2.850507319679923
+    maxAngle1 = 2.8535752812556945
+    minAngle2 = 2.10120065625985
+    maxAngle2 = 2.1042686178356216
 
     # 7 o'clock edge stable area
     # minAngle1 = -4.169727936862266
@@ -78,18 +84,36 @@ class PrimaryWindow(pyglet.window.Window):
     # minAngle2 = 1.6173557116687927
     # maxAngle2 = 1.6296275579718777
 
-    # 10 o'clock edge stable area
-    # minAngle1 = -4.069786020569939
-    # maxAngle1 = -4.04524232796377
-    # minAngle2 = 4.156768867166207
-    # maxAngle2 = 4.181312559772378
-
     # 8 o'clock just beyond edge stable area
-    minAngle1 = -4.535968917931539
-    maxAngle1 = -4.486881532719199
-    minAngle2 = 1.9843084598236533
-    maxAngle2 = 2.0333958450359937
-    
+    # minAngle1 = -4.535968917931539
+    # maxAngle1 = -4.486881532719199
+    # minAngle2 = 1.9843084598236533
+    # maxAngle2 = 2.0333958450359937
+
+    # Just outside first mass flip energy near 45 degree big branch
+    # minAngle1 = -8.145757051676634
+    # maxAngle1 = -7.949407510827273
+    # minAngle2 = -2.1080086705587506
+    # maxAngle2 = -1.9116591297093883
+
+    # 5 o'clock high energy stable area
+    # minAngle1 = -2.7491880962023423
+    # maxAngle1 = -2.7369162498992567
+    # minAngle2 = 2.5978026002074843
+    # maxAngle2 = 2.61007444651057
+
+    # Edge of flip area 6 o'clock
+    # minAngle1 = -3.176346522320131
+    # maxAngle1 = -3.1272591371077896
+    # minAngle2 = 0.17318029502913748
+    # maxAngle2 = 0.222267680241478
+
+    # Deep high energy 2
+    # minAngle1 = -2.9295305475301197
+    # maxAngle1 = -2.929434673730877
+    # minAngle2 = 3.253602396740415
+    # maxAngle2 = 3.2536982705396578
+
     point1Angle = (maxAngle1 - minAngle1)/2 + minAngle1
     point2Angle = (maxAngle2 - minAngle2)/2 + minAngle2
 
@@ -133,8 +157,12 @@ class PrimaryWindow(pyglet.window.Window):
 
     def update(self, dt):
 
-        # Compute the next steps of the simulation.
-        for i in range(self.numStepsToComputePerFrame):
+        # Simulate the simulation forward one frame.
+        amountOfTimeSimulatedForFrame = 0
+        timeStepToUseInCalculation = self.timeStep
+        while amountOfTimeSimulatedForFrame < 1/self.FPS:
+            # Lower the time step to hit the frame rate on the last step to simulate for the frame.
+            timeStepToUseInCalculation = min(1/self.FPS - amountOfTimeSimulatedForFrame, timeStepToUseInCalculation)
 
             # RK4
             if self.simulationAlgorithm is SimulationAlgorithm.RK_4:
@@ -146,10 +174,11 @@ class PrimaryWindow(pyglet.window.Window):
                                                                               self.pendulum1Length, self.pendulum2Length,
                                                                               self.point1Angle, self.point2Angle,
                                                                               self.point1AngularVelocity, self.point2AngularVelocity,
-                                                                              self.timeStep)
-                self.simulationTime += self.timeStep
+                                                                              timeStepToUseInCalculation)
+                self.simulationTime += timeStepToUseInCalculation
+                amountOfTimeSimulatedForFrame += timeStepToUseInCalculation
 
-            #RKF45
+            # Adaptive time step methods
             elif self.simulationAlgorithm in ADAPTIVE_TIME_STEP_METHODS:
                 self.point1Angle, \
                 self.point2Angle, \
@@ -160,14 +189,13 @@ class PrimaryWindow(pyglet.window.Window):
                                                                                                                      self.pendulum1Length, self.pendulum2Length,
                                                                                                                      self.point1Angle, self.point2Angle,
                                                                                                                      self.point1AngularVelocity, self.point2AngularVelocity,
-                                                                                                                     self.timeStep,
+                                                                                                                     timeStepToUseInCalculation,
                                                                                                                      self.errorTolerance,
                                                                                                                      self.simulationAlgorithm)
+                timeStepToUseInCalculation = newTimeStep
                 self.simulationTime += timeStepUsedInCalculation
-                self.timeStep = newTimeStep
-
-        # Recalculate the number of time steps to compute per frame.
-        self.numStepsToComputePerFrame = int(ceil((1/self.FPS)/self.timeStep))
+                amountOfTimeSimulatedForFrame += timeStepUsedInCalculation
+                self.timeStep = timeStepToUseInCalculation
 
         # Compute and display the energy of the system.
         totalEnergy = get_total_energy_of_pendulum(self.origin,
