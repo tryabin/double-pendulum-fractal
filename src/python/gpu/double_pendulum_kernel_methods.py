@@ -362,7 +362,10 @@ class DoublePendulumCudaSimulator:
 
         # Create an image from the amount of chaos.
         fig, ax = plt.subplots(figsize=((self.numberOfAnglesToTestX - 2)/100, (self.numberOfAnglesToTestY - 2)/100), frameon=False)
-        plt.imshow(amountOfChaosWithBordersRemoved, cmap='hot', interpolation='nearest', vmin=0, vmax=100)
+
+        # Use matplotlib to color the image like a heatmap. Add vmin and vmax to keep the coloring consistent between zoom images.
+        plt.imshow(amountOfChaosWithBordersRemoved, cmap='hot', interpolation='nearest')
+        # plt.imshow(amountOfChaosWithBordersRemoved, cmap='hot', interpolation='nearest', vmin=0, vmax=100)
 
         plt.gca().set_axis_off()
         plt.subplots_adjust(top=1, bottom=0, right=1, left=0,
@@ -383,6 +386,8 @@ class DoublePendulumCudaSimulator:
         w, h, d = buf.shape
         imageWithoutAntiAliasing = Image.frombytes("RGBA", (w, h), buf.tobytes())
         image = imageWithoutAntiAliasing.resize((self.imageResolutionWidthPixels - 2, self.imageResolutionHeightPixels - 2), Image.LANCZOS)
+        plt.close()
+
         logger.info('Finished creating image')
 
         return image
