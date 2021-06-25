@@ -213,17 +213,13 @@ class GenerateDoublePendulumFractalImages:
         totalZoomTimeSeconds = 4
         totalNumberOfImages = fps*totalZoomTimeSeconds
         initialBoxWidth = pi
-        initialBoxCenterX = pi
-        initialBoxCenterY = pi
         initialMaxTimeToSimulate = 2**3
         finalBoxWidth = 2e-5
-        finalBoxCenterX = 3.3537026965490882
-        finalBoxCenterY = 3.2536503336400364
+        boxCenterX = 3.3537026965490882
+        boxCenterY = 3.2536503336400364
         finalMaxTimeToSimulate = 2**8 + 2**6
         zoomFactor = exp(log(finalBoxWidth / initialBoxWidth) / (totalNumberOfImages - 1))
         maxTimeFactor = exp(log(finalMaxTimeToSimulate / initialMaxTimeToSimulate) / (totalNumberOfImages - 1))
-        centerXFactor = exp(log(finalBoxCenterX / initialBoxCenterX) / (totalNumberOfImages - 1))
-        centerYFactor = exp(log(finalBoxCenterY / initialBoxCenterY) / (totalNumberOfImages - 1))
 
         # This is used to avoid simulating pendulums that have already gone chaotic. It is the max amount
         # of time to simulate per kernel run before running the kernel to compute the chaos amount, at which
@@ -235,39 +231,49 @@ class GenerateDoublePendulumFractalImages:
         logger.info('total zoom time seconds = ' + str(totalZoomTimeSeconds))
         logger.info('total number of images = ' + str(totalNumberOfImages))
         logger.info('initial box width = ' + str(initialBoxWidth))
-        logger.info('initial box center = (' + str(initialBoxCenterX) + ', ' + str(initialBoxCenterY) + ')')
         logger.info('initial max time to simulate seconds = ' + str(initialMaxTimeToSimulate))
         logger.info('final box width = ' + str(finalBoxWidth))
-        logger.info('final box center = (' + str(finalBoxCenterX) + ', ' + str(finalBoxCenterY) + ')')
+        logger.info('box center = (' + str(boxCenterX) + ', ' + str(boxCenterY) + ')')
         logger.info('final max time to simulate seconds = ' + str(finalMaxTimeToSimulate))
         logger.info('zoom factor = ' + str(zoomFactor))
         logger.info('max time factor = ' + str(maxTimeFactor))
-        logger.info('center x factor = ' + str(centerXFactor))
-        logger.info('center y factor = ' + str(centerYFactor))
         logger.info('difference cutoff = ' + str(differenceCutoff))
         logger.info('simulationTimeBetweenComputingChaosAmount seconds = ' + str(simulationTimeBetweenComputingChaosAmount))
 
+        # If the zoom factor is 1 then a zoom isn't being done, so to optimize the pendulums do not
+        # have to be simulated from scratch for every image.
+        currentStates = None
+        chaosAmountData = None
+        if zoomFactor == 1:
+            currentStates = np.zeros((4, app.simulator.numberOfAnglesToTestY, app.simulator.numberOfAnglesToTestX), np.dtype(app.simulator.npFloatType))
+            chaosAmountData = -1*np.ones((app.simulator.numberOfAnglesToTestY, app.simulator.numberOfAnglesToTestX), np.dtype(app.simulator.npFloatType))
+
         # Generate the images
+        timeAlreadySimulated = 0
         for i in range(totalNumberOfImages):
             logger.info('Generating image ' + str(i + 1) + ' of ' + str(totalNumberOfImages))
 
             # Compute the zoomed-in bounding box
             newWidth = initialBoxWidth*zoomFactor**i
-            self.simulator.set_angle1_min(finalBoxCenterX - newWidth/2)
-            self.simulator.set_angle1_max(finalBoxCenterX + newWidth/2)
-            self.simulator.set_angle2_min(finalBoxCenterY - newWidth/2)
-            self.simulator.set_angle2_max(finalBoxCenterY + newWidth/2)
+            self.simulator.set_angle1_min(boxCenterX - newWidth/2)
+            self.simulator.set_angle1_max(boxCenterX + newWidth/2)
+            self.simulator.set_angle2_min(boxCenterY - newWidth/2)
+            self.simulator.set_angle2_max(boxCenterY + newWidth/2)
 
             # Simulate the pendulums
             curMaxTimeToSimulate = initialMaxTimeToSimulate*maxTimeFactor**i
-            image = self.generate_chaos_amount_image_from_scratch(curMaxTimeToSimulate, simulationTimeBetweenComputingChaosAmount, differenceCutoff)
+            if zoomFactor != 1:
+                image = self.generate_chaos_amount_image_from_scratch(curMaxTimeToSimulate, simulationTimeBetweenComputingChaosAmount, differenceCutoff)
+            else:
+                image = self.generate_chaos_amount_image(currentStates, chaosAmountData, curMaxTimeToSimulate, simulationTimeBetweenComputingChaosAmount, differenceCutoff, timeAlreadySimulated)
             imageFileName = f'{i:04}' + '.png'
             image.save(os.path.join(self.directoryToSaveData, imageFileName))
+            timeAlreadySimulated = curMaxTimeToSimulate
 
             logger.info('')
 
         # Convert the images into an mp4 video
-        videoName = 'chaos amount zoom video_' + str(finalBoxCenterX) + '-' + str(finalBoxCenterY)
+        videoName = 'chaos amount zoom video_' + str(boxCenterX) + '-' + str(boxCenterY)
         logger.info('Creating video from images...')
         create_video_from_images(self.directoryToSaveData, videoName, fps)
         logger.info('Finished creating video ' + videoName)

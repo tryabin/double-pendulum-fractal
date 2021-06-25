@@ -101,31 +101,63 @@ __global__ void compute_amount_of_chaos(PendulumState* pendulumStates,
             }
 
             // Compute the average absolute difference for angle1 between the current pixel and the
-            // four surrounding pixels, up, down, left, right.
+            // four surrounding pixels, up, down, left, right. Skip neighbors that have become chaotic.
             FloatType centralAngle1 = pendulumStates[pixelIndex].angle1;
             FloatType centralAngle2 = pendulumStates[pixelIndex].angle2;
             FloatType averageAbsoluteDifference = 0;
 
             // Up
-            PendulumState curSidePendulum = pendulumStates[(totalNumberOfAnglesToTestY - y - 2)*totalNumberOfAnglesToTestX + x];
-            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            PendulumState curSidePendulum;
+            int numberOfChaoticNeighbors = 0;
+            int neighborPixelIndex = (totalNumberOfAnglesToTestY - y - 2)*totalNumberOfAnglesToTestX + x;
+            if (amountOfChaos[neighborPixelIndex] != CHAOTIC) {
+                curSidePendulum = pendulumStates[neighborPixelIndex];
+                averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            }
+            else {
+                numberOfChaoticNeighbors++;
+            }
 
             // Down
-            curSidePendulum = pendulumStates[(totalNumberOfAnglesToTestY - y)*totalNumberOfAnglesToTestX + x];
-            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            neighborPixelIndex = (totalNumberOfAnglesToTestY - y)*totalNumberOfAnglesToTestX + x;
+            if (amountOfChaos[neighborPixelIndex] != CHAOTIC) {
+                curSidePendulum = pendulumStates[neighborPixelIndex];
+                averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            }
+            else {
+                numberOfChaoticNeighbors++;
+            }
 
             // Left
-            curSidePendulum = pendulumStates[pixelIndex - 1];
-            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            neighborPixelIndex = pixelIndex - 1;
+            if (amountOfChaos[neighborPixelIndex] != CHAOTIC) {
+                curSidePendulum = pendulumStates[neighborPixelIndex];
+                averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            }
+            else {
+                numberOfChaoticNeighbors++;
+            }
 
             // Right
-            curSidePendulum = pendulumStates[pixelIndex + 1];
-            averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            neighborPixelIndex = pixelIndex + 1;
+            if (amountOfChaos[neighborPixelIndex] != CHAOTIC) {
+                curSidePendulum = pendulumStates[neighborPixelIndex];
+                averageAbsoluteDifference += abs(centralAngle1 - curSidePendulum.angle1) + abs(centralAngle2 - curSidePendulum.angle2);
+            }
+            else {
+                numberOfChaoticNeighbors++;
+            }
 
             // Compute a quantitative value for the chaos at the current pixel from the average absolute difference.
-            averageAbsoluteDifference /= 4.0;
-            FloatType currentChaosValue = averageAbsoluteDifference > differenceCutoff ? CHAOTIC : -log(averageAbsoluteDifference)*10;
-            amountOfChaos[pixelIndex] = currentChaosValue;
+            // If all the neighbors are chaotic, then set the current pixel as chaotic also.
+            if (numberOfChaoticNeighbors == 4) {
+                amountOfChaos[pixelIndex] = CHAOTIC;
+            }
+            else {
+                averageAbsoluteDifference /= 4.0;
+                FloatType currentChaosValue = averageAbsoluteDifference > differenceCutoff ? CHAOTIC : -log(averageAbsoluteDifference)*10;
+                amountOfChaos[pixelIndex] = currentChaosValue;
+            }
         }
     }
 }
