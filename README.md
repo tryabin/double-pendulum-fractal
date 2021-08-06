@@ -38,3 +38,7 @@ The `double_pendulum_chaos_amount_fractal_interactive.py` program colors each pi
  <p align="center">
   <img src="https://raw.githubusercontent.com/tryabin/double-pendulum-fractal/master/double%20pendulum%20fractal%20chaos%20amount%20low%20energy.png" alt="fractal image example" width="1000" height="1000"/>
 </p>
+
+## References
+Fehlberg 8(7) Butcher Tableau used from here:\
+http://runge.math.smu.edu/arkode_dev/doc/guide/build/html/Butcher.html#fehlberg-13-7-8
