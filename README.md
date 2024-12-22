@@ -28,6 +28,8 @@ The `double_pendulum_chaos_amount_fractal_interactive.py` program colors each pi
 
 * The `src/python/gpu/double_pendulum_fractal_generate_images.py` program can be used to just generate images non-interactively, and generate zoom-in videos.
 
+* https://observablehq.com/@tryabin/high-energy-stable-initial-conditions-of-the-double-pendul
+
 ## Large images
 ### Time till flip
 <p align="center">
