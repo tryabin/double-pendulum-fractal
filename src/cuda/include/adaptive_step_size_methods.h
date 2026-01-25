@@ -238,7 +238,7 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_ste
     // Keep recalculating the step with a smaller time step until the given error tolerance is reached.
     FloatType kList[13][4];
     while(1) {
-//      Compute K values.
+        // Compute K values.
         #ifdef FEHLBERG_87
         compute_all_steps_fehlberg_87(pendulumState, u, length1, length2, g, kList, timeStep);
         #else
