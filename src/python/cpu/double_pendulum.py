@@ -1,5 +1,6 @@
 import sys
 
+import numpy as np
 import pyglet
 from pyglet.gl import *
 from pyglet.window import key
@@ -15,15 +16,15 @@ class PrimaryWindow(pyglet.window.Window):
 
     # Basic config
     FPS = 60
-    timeStep = .01/2**2
-    errorTolerance = 1e-7
+    timeStep = .01/2**4
+    errorTolerance = 2e-9
     mp.prec = 53
     numStepsToComputePerFrame = int(ceil((1/FPS)/timeStep))
-    simulationAlgorithm = SimulationAlgorithm.RK_4
+    # simulationAlgorithm = SimulationAlgorithm.RK_4
     # simulationAlgorithm = SimulationAlgorithm.RKF_45
     # simulationAlgorithm = SimulationAlgorithm.DORMAND_PRINCE_54
     # simulationAlgorithm = SimulationAlgorithm.VERNER_65
-    # simulationAlgorithm = SimulationAlgorithm.FEHLBERG_87
+    simulationAlgorithm = SimulationAlgorithm.FEHLBERG_87
     print('algorithm = ' + str(simulationAlgorithm.name))
 
     # UI config
@@ -49,34 +50,38 @@ class PrimaryWindow(pyglet.window.Window):
     point2AngularVelocity = 0
 
     # 7 o'clock "Big Three" stable area
+    # Recurrence Time : 8.43333333
     # minAngle1 = -3.396454357612266
     # maxAngle1 = -3.371910665006095
     # minAngle2 = 1.901448953585222
     # maxAngle2 = 1.925992646191392
 
     # 9 o'clock "Big Three" stable area
+    # Recurrence Time : 6.433333333
     # minAngle1 = -4.0033707883776435
     # maxAngle1 = -3.9051960179529623
     # minAngle2 = 3.2218996157971826
     # maxAngle2 = 3.3200743862218642
 
     # 11 o'clock "Big Three" stable area
+    # Recurrence Time : 8.56666
     # minAngle1 = -3.6061556672393835
     # maxAngle1 = -3.507980896814703
     # minAngle2 = 4.390964782014284
     # maxAngle2 = 4.489139552438965
 
     # 10 o'clock little brother to "Big Three" stable area
+    # Recurrence Time : 9.1
     # minAngle1 = -4.106454297323556
     # maxAngle1 = -4.008279526898876
     # minAngle2 = 4.120198765183015
     # maxAngle2 = 4.218373535607696
 
     # 2nd mass spins in one direction
-    minAngle1 = 2.850507319679923
-    maxAngle1 = 2.8535752812556945
-    minAngle2 = 2.10120065625985
-    maxAngle2 = 2.1042686178356216
+    # minAngle1 = 2.850507319679923
+    # maxAngle1 = 2.8535752812556945
+    # minAngle2 = 2.10120065625985
+    # maxAngle2 = 2.1042686178356216
 
     # 7 o'clock edge stable area
     # minAngle1 = -4.169727936862266
@@ -85,18 +90,21 @@ class PrimaryWindow(pyglet.window.Window):
     # maxAngle2 = 1.6296275579718777
 
     # 8 o'clock just beyond edge stable area
+    # Recurrence Time : 9.73333
     # minAngle1 = -4.535968917931539
     # maxAngle1 = -4.486881532719199
     # minAngle2 = 1.9843084598236533
     # maxAngle2 = 2.0333958450359937
 
     # Just outside first mass flip energy near 45 degree big branch
+    # Recurrence Time : 9.7
     # minAngle1 = -8.145757051676634
     # maxAngle1 = -7.949407510827273
     # minAngle2 = -2.1080086705587506
     # maxAngle2 = -1.9116591297093883
 
     # 5 o'clock high energy stable area
+    # Recurrence Time : 10.533333
     # minAngle1 = -2.7491880962023423
     # maxAngle1 = -2.7369162498992567
     # minAngle2 = 2.5978026002074843
@@ -109,13 +117,29 @@ class PrimaryWindow(pyglet.window.Window):
     # maxAngle2 = 0.222267680241478
 
     # Deep high energy 2
+    # Recurrence Time : 18.76666
     # minAngle1 = -2.9295305475301197
     # maxAngle1 = -2.929434673730877
     # minAngle2 = 3.253602396740415
     # maxAngle2 = 3.2536982705396578
 
+    # Deep 10 o'clock metronome
+    # Recurrence Time : 7.833333
+    # minAngle1 = -3.4037760479128423
+    # maxAngle1 = -3.4033925527158715
+    # minAngle2 = 4.519277672978555
+    # maxAngle2 = 4.519661168175526
+
+    # Recurrence Time: 26.4333
+    minAngle1 = -1.686468065581398
+    maxAngle1 = -1.6834001040056268
+    minAngle2 = -0.5629829333789358
+    maxAngle2 = -0.5599149718031644
+
     point1Angle = (maxAngle1 - minAngle1)/2 + minAngle1
     point2Angle = (maxAngle2 - minAngle2)/2 + minAngle2
+    origPoint1Angle = point1Angle
+    origPoint2Angle = point2Angle
 
     print('point1Angle = ' + str(point1Angle))
     print('point2Angle = ' + str(point2Angle))
@@ -139,6 +163,11 @@ class PrimaryWindow(pyglet.window.Window):
                                              x=self.windowWidthPixels/2, y=self.windowHeightPixels/2 + 200,
                                              anchor_x='center', anchor_y='center')
 
+        self.recurrenceTimeLabel = pyglet.text.Label(font_name='Times New Roman',
+                                             font_size=36,
+                                             x=self.windowWidthPixels/2, y=self.windowHeightPixels/2 + 140,
+                                             anchor_x='center', anchor_y='center')
+
         pyglet.clock.schedule_interval(self.update, 1.0/self.FPS)
         pyglet.app.run()
 
@@ -150,6 +179,7 @@ class PrimaryWindow(pyglet.window.Window):
         self.point1.render()
         self.point2.render()
         self.energyLabel.draw()
+        self.recurrenceTimeLabel.draw()
 
     def on_key_press(self, symbol, modifiers):
         if symbol == key.ESCAPE:
@@ -163,6 +193,8 @@ class PrimaryWindow(pyglet.window.Window):
         while amountOfTimeSimulatedForFrame < 1/self.FPS:
             # Lower the time step to hit the frame rate on the last step to simulate for the frame.
             timeStepToUseInCalculation = min(1/self.FPS - amountOfTimeSimulatedForFrame, timeStepToUseInCalculation)
+            origPoint1AngularVelocity = self.point1AngularVelocity
+            origPoint2AngularVelocity = self.point2AngularVelocity
 
             # RK4
             if self.simulationAlgorithm is SimulationAlgorithm.RK_4:
@@ -197,6 +229,14 @@ class PrimaryWindow(pyglet.window.Window):
                 amountOfTimeSimulatedForFrame += timeStepUsedInCalculation
                 self.timeStep = timeStepToUseInCalculation
 
+            # Check if the pendulum reached a previous state.
+            if (np.sign(self.point1AngularVelocity) != np.sign(origPoint1AngularVelocity) and
+                np.sign(self.point2AngularVelocity) != np.sign(origPoint2AngularVelocity) and
+                self.simulationTime > 1 and
+                'seconds' not in self.recurrenceTimeLabel.text):
+                print('Recurrence Time = ' + str(2*self.simulationTime))
+                self.recurrenceTimeLabel.text = 'Recurrence Time: ' + str(2*self.simulationTime) + ' seconds'
+
         # Compute and display the energy of the system.
         totalEnergy = get_total_energy_of_pendulum(self.origin,
                                                    self.point1Angle, self.point2Angle,
@@ -205,7 +245,8 @@ class PrimaryWindow(pyglet.window.Window):
                                                    self.point1Mass, self.point2Mass,
                                                    self.gravity)
         self.energyLabel.text = str(mp.nstr(totalEnergy, self.labelNumDecimalPlaces, strip_zeros=False))
-        
+
+
         # Update the position of the masses.
         point1Position = get_point_position(self.origin, self.point1Angle, self.pendulum1Length)
         point2Position = get_point_position(point1Position, self.point2Angle, self.pendulum2Length)

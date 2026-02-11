@@ -33,7 +33,7 @@ class DoublePendulumCudaSimulator:
 
     # Default optimal max register counts for the kernels
     optimalMaxRegisterCountTimeTillFlipKernel = 80
-    optimalMexRegisterCountAmountOfChaosKernel = 76
+    optimalMaxRegisterCountAmountOfChaosKernel = 80
 
     def __init__(self, deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, maxRegistersToUse):
 
@@ -68,7 +68,7 @@ class DoublePendulumCudaSimulator:
                 amountOfChaosKernelOptions.append('-maxrregcount=' + str(maxRegistersToUse))
             else:
                 timeTillFlipKernelOptions.append('-maxrregcount=' + str(self.optimalMaxRegisterCountTimeTillFlipKernel))
-                amountOfChaosKernelOptions.append('-maxrregcount=' + str(self.optimalMexRegisterCountAmountOfChaosKernel))
+                amountOfChaosKernelOptions.append('-maxrregcount=' + str(self.optimalMaxRegisterCountAmountOfChaosKernel))
 
         logger.info('options = ' + str(options))
         logger.info('timeTillFlipKernelOptions = ' + str(timeTillFlipKernelOptions))
@@ -319,7 +319,8 @@ class DoublePendulumCudaSimulator:
                                                                  # block=(2, 2, 1), grid=(1, 1))
                                                                  # block=(4, 4, 1), grid=(4, 4))
                                                                  # block=(8, 8, 1), grid=(8, 8))
-                                                                 block=(16, 16, 1), grid=(16, 16))
+                                                                 # block=(16, 16, 1), grid=(16, 16))
+                                                                 block=(16, 16, 1), grid=(256, 256))
                                                                  # block=(32, 32, 1), grid=(32, 32))
 
         # Print the time it took to run the kernel.
@@ -343,7 +344,7 @@ class DoublePendulumCudaSimulator:
 
 
     def create_image_from_amount_of_chaos(self, currentStates, amountOfChaos, differenceCutoff):
-        logger.info('Creating image from time till flip...')
+        logger.info('Creating image from chaos amount flip...')
         logger.info('differenceCutoff = ' + str(differenceCutoff))
 
         # Run a kernel to compute the colors from the time step counts.

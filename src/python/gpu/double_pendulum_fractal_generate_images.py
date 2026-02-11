@@ -283,8 +283,9 @@ if __name__ == "__main__":
 
     # Configuration
     directoryToSaveData = create_directory()
-    deviceNumberToUse = 0
+    deviceNumberToUse = 1
     useDoublePrecision = True
+    resolution = 1024
     # algorithm = SimulationAlgorithm.RK_4
     # algorithm = SimulationAlgorithm.RKF_45
     # algorithm = SimulationAlgorithm.CASH_KARP_45
@@ -293,14 +294,14 @@ if __name__ == "__main__":
     simulator = DoublePendulumCudaSimulator(deviceNumberToUse, directoryToSaveData, useDoublePrecision, algorithm, None)
 
     # The dimensions of the image in pixels.
-    simulator.set_image_width_pixels(int(1000/2**0))
+    simulator.set_image_width_pixels(int(resolution/2**0))
     simulator.set_image_height_pixels(simulator.imageResolutionWidthPixels)
 
     # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
     # 1 means no anti-aliasing.
     # 2 means four total samples are used per pixel.
     # 3 means nine total samples are used per pixel, etc.
-    simulator.set_anti_aliasing_amount(1)
+    simulator.set_anti_aliasing_amount(3)
 
     # Simulation parameters.
     simulator.set_time_step(.01/2**2)

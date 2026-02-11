@@ -1,8 +1,7 @@
 import logging
-import sys
 import time
 import tkinter as tk
-from math import *
+from math import pi
 from pathlib import Path
 
 import numpy as np
@@ -21,19 +20,37 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
     maxTimeToSimulateFactor = 2
     timeStepFactor = 2
     errorToleranceFactor = 2
-    maxTimeToSimulateSeconds = 2**5
+    origMaxTimeToSimulateSeconds = 2**4
+    maxTimeToSimulateSeconds = origMaxTimeToSimulateSeconds
     differenceCutoff = 1e-0
+    antialiasingAmount = 2
+    resolution = 1024
 
     # Used for optimization so pendulums that have become chaotic are not simulated.
     simulationTimeBetweenComputingChaosAmount = 2**3
+    origErrorTolerance = 2e-9
+    errorTolerance = origErrorTolerance
 
     # Other parameters
     deviceNumberToUse = 0  # The GPU to use to run the simulation.
-    useDoublePrecision = False # The type of floating point arithmetic to use in the simulation.
+    useDoublePrecision = True # The type of floating point arithmetic to use in the simulation.
     # algorithm = SimulationAlgorithm.RKF_45
     # algorithm = SimulationAlgorithm.CASH_KARP_45
-    algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
-    # algorithm = SimulationAlgorithm.FEHLBERG_87
+    # algorithm = SimulationAlgorithm.DORMAND_PRINCE_54
+    algorithm = SimulationAlgorithm.FEHLBERG_87
+
+    # Starting dimensions
+    # High energy area fully zoomed out
+    # origAngle1Min = -2*pi
+    # origAngle1Max = 0
+    # origAngle2Min = 0
+    # origAngle2Max = 2*pi
+
+    # High energy area zoomed in 2x
+    origAngle1Min = -2*pi + 2*pi/4
+    origAngle1Max = 0 - 2*pi/4
+    origAngle2Min = 0 + 2*pi/4
+    origAngle2Max = 2*pi - 2*pi/4
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -41,54 +58,41 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
         # Initialize the logger.
         self.directoryToSaveData = './interactive chaos amount'
         Path(self.directoryToSaveData).mkdir(parents=True, exist_ok=True)
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(logging.StreamHandler(sys.stdout))
-        logger.addHandler(logging.FileHandler(self.directoryToSaveData + '/log.log', mode='w'))
+
+
+        logPath = self.directoryToSaveData + '/log.log'
+        logging.getLogger().handlers.clear()
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            handlers=[
+                logging.FileHandler(logPath, mode="w"),
+                logging.StreamHandler()
+            ],
+        )
 
         # Initialize the simulator.
         self.simulator = DoublePendulumCudaSimulator(self.deviceNumberToUse, self.directoryToSaveData, self.useDoublePrecision, self.algorithm, None)
 
-        # The range of pendulum angles.
-
-        # High energy area fully zoomed out
-        # self.simulator.set_angle1_min(-2*pi)
-        # self.simulator.set_angle1_max(0)
-        # self.simulator.set_angle2_min(0)
-        # self.simulator.set_angle2_max(2*pi)
-
-        # High energy area zoomed in 2x
-        self.simulator.set_angle1_min(-2*pi + 2*pi/4)
-        self.simulator.set_angle1_max(0 - 2*pi/4)
-        self.simulator.set_angle2_min(0 + 2*pi/4)
-        self.simulator.set_angle2_max(2*pi - 2*pi/4)
-
-        # self.simulator.set_angle1_min(-3.396454357612266)
-        # self.simulator.set_angle1_max(-3.371910665006095)
-        # self.simulator.set_angle2_min(1.901448953585222)
-        # self.simulator.set_angle2_max(1.925992646191392)
-
-        # self.simulator.set_angle1_min(pi/2)
-        # self.simulator.set_angle1_max(2*pi)
-        # self.simulator.set_angle2_min(pi/2)
-        # self.simulator.set_angle2_max(2*pi)
-
-        # self.simulator.set_angle1_min(-3*pi)
-        # self.simulator.set_angle1_max(-pi)
-        # self.simulator.set_angle2_min(-pi)
-        # self.simulator.set_angle2_max(pi)
+        # Set the initial range of pendulum angles.
+        self.simulator.set_angle1_min(self.origAngle1Min)
+        self.simulator.set_angle1_max(self.origAngle1Max)
+        self.simulator.set_angle2_min(self.origAngle2Min)
+        self.simulator.set_angle2_max(self.origAngle2Max)
 
         # The width of the image in pixels.
-        self.simulator.set_image_dimensions_based_on_width(1000/2**0)
+        self.simulator.set_image_dimensions_based_on_width(self.resolution/2**0)
 
         # The amount of super-sampling anti-aliasing to apply to the image. Can be fractional.
         # 1 means no anti-aliasing.
         # 2 means four total samples are used per pixel.
         # 3 means nine total samples are used per pixel, etc.
-        self.simulator.set_anti_aliasing_amount(1)
+        self.simulator.set_anti_aliasing_amount(self.antialiasingAmount)
 
         # Simulation parameters.
         self.simulator.set_time_step(.01/2**2)
-        self.simulator.set_error_tolerance(1e-6)
+        self.simulator.set_error_tolerance(self.errorTolerance)
         self.simulator.set_gravity(1)
         self.simulator.set_point1_mass(1)
         self.simulator.set_point2_mass(1)
@@ -115,6 +119,7 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
         self.canvas.bind('s', self.decrease_time_to_wait_for_flip)
         self.canvas.bind('q', self.increase_accuracy)
         self.canvas.bind('w', self.decrease_accuracy)
+        self.canvas.bind('r', self.reset)
         self.canvas.focus_set()
         
         self.draw_fractal()
@@ -181,11 +186,27 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
         self.draw_fractal()
 
 
+    def reset(self, event):
+        self.maxTimeToSimulateSeconds = self.origMaxTimeToSimulateSeconds
+        self.errorTolerance = self.origErrorTolerance
+        self.simulator.set_angle1_min(self.origAngle1Min)
+        self.simulator.set_angle1_max(self.origAngle1Max)
+        self.simulator.set_angle2_min(self.origAngle2Min)
+        self.simulator.set_angle2_max(self.origAngle2Max)
+        self.initialize_data()
+        self.draw_fractal()
+
+
     def print_angle_boundaries(self):
         logger.info('self.simulator.set_angle1_min(' + str(self.simulator.angle1Min) + ')')
         logger.info('self.simulator.set_angle1_max(' + str(self.simulator.angle1Max) + ')')
         logger.info('self.simulator.set_angle2_min(' + str(self.simulator.angle2Min) + ')')
         logger.info('self.simulator.set_angle2_max(' + str(self.simulator.angle2Max) + ')')
+
+        logger.info('minAngle1 = ' + str(self.simulator.angle1Min))
+        logger.info('maxAngle1 = ' + str(self.simulator.angle1Max))
+        logger.info('minAngle2 = ' + str(self.simulator.angle2Min))
+        logger.info('maxAngle2 = ' + str(self.simulator.angle2Max))
 
 
     def initialize_data(self):
@@ -212,12 +233,12 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
                                                                         self.simulationTimeBetweenComputingChaosAmount,
                                                                         self.differenceCutoff,
                                                                         self.timeAlreadySimulated)
+        self.timeAlreadySimulated = self.maxTimeToSimulateSeconds
 
         # Save the new pendulum states and time step till flip counts to a file so the data can be re-used in another run.
-        saveFilePath = self.directoryToSaveData + '/saved_data_for_kernel_run'
-        self.timeAlreadySimulated = self.maxTimeToSimulateSeconds
-        np.savez_compressed(saveFilePath, initialStates=self.currentStates, amountOfTimeAlreadyExecuted=np.array([self.timeAlreadySimulated]))
-        logger.info('saved data to: "' + str(saveFilePath) + '"')
+        # saveFilePath = self.directoryToSaveData + '/saved_data_for_kernel_run'
+        # np.savez_compressed(saveFilePath, initialStates=self.currentStates, amountOfTimeAlreadyExecuted=np.array([self.timeAlreadySimulated]))
+        # logger.info('saved data to: "' + str(saveFilePath) + '"')
 
         # Save the image to a file.
         save_image_to_file(self.directoryToSaveData, computedImage)

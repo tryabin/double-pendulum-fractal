@@ -316,12 +316,8 @@ def get_total_energy_of_pendulum_mp(origin,
                                     point1Mass, point2Mass,
                                     gravity):
 
-    point1Position = get_point_position_mp(origin, point1Angle, pendulum1Length)
-    point2Position = get_point_position_mp(point1Position, point2Angle, pendulum2Length)
-
     # Compute the potential energy of the masses.
-    potentialEnergy1 = point1Position[1]*point1Mass*gravity
-    potentialEnergy2 = point2Position[1]*point2Mass*gravity
+    potentialEnergy = get_potential_energy_of_pendulum_mp(origin, point1Angle, point2Angle, pendulum1Length, pendulum2Length, point1Mass, point2Mass, gravity)
 
     # Compute the kinetic energy of the first mass.
     point1Velocity = pendulum1Length*point1AngularVelocity
@@ -336,6 +332,18 @@ def get_total_energy_of_pendulum_mp(origin,
     point2Velocity = sqrt(point2VelocityX**2 + point2VelocityY**2)
     kineticEnergyPoint2 = .5*point2Mass*point2Velocity**2
 
-    totalEnergy = potentialEnergy1 + potentialEnergy2 + kineticEnergyPoint1 + kineticEnergyPoint2
+    totalEnergy = potentialEnergy + kineticEnergyPoint1 + kineticEnergyPoint2
 
     return totalEnergy
+
+
+def get_potential_energy_of_pendulum_mp(origin,
+                                        point1Angle, point2Angle,
+                                        pendulum1Length, pendulum2Length,
+                                        point1Mass, point2Mass,
+                                        gravity):
+    point1Position = get_point_position_mp(origin, point1Angle, pendulum1Length)
+    point2Position = get_point_position_mp(point1Position, point2Angle, pendulum2Length)
+    potentialEnergy1 = point1Position[1]*point1Mass*gravity
+    potentialEnergy2 = point2Position[1]*point2Mass*gravity
+    return potentialEnergy1 + potentialEnergy2

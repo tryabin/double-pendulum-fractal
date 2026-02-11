@@ -20,6 +20,8 @@ The `double_pendulum_chaos_amount_fractal_interactive.py` program colors each pi
 
 * Press `q` to decrease the time step or tolerance used in the simulations, and `w` to increase it.
 
+* Press `r` to reset to the original parameters.
+
 * On Windows the TdrDelay registry value may need to be increased so that the CUDA kernel doesn't timeout when doing the computations.
 
 * The amount of anti-aliasing can be adjusted by changing the value in the `set_anti_aliasing_amount` method.
