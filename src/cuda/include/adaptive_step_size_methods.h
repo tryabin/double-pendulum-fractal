@@ -251,7 +251,7 @@ __device__ AdaptiveStepSizeResult compute_double_pendulum_step_with_adaptive_ste
         }
         #endif
 
-        // Compute the new state of the pendulum with 4th and 5th order methods, and compute what the new time step should be.
+        // Compute the new state of the pendulum and compute what the new time step should be.
         PendulumState newPendulumState;
         FloatType* pendulumStateValues = &(pendulumState.angle1);
         FloatType* newPendulumStateValues = &(newPendulumState.angle1);
