@@ -20,9 +20,10 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
     maxTimeToSimulateFactor = 2
     timeStepFactor = 2
     errorToleranceFactor = 2
-    origMaxTimeToSimulateSeconds = 2**4
+    # origMaxTimeToSimulateSeconds = 2**4
+    origMaxTimeToSimulateSeconds = 2**14  # Performance Test
     maxTimeToSimulateSeconds = origMaxTimeToSimulateSeconds
-    differenceCutoff = 1e-0
+    differenceCutoff = .5
     antialiasingAmount = 2
     resolution = 1024
 
@@ -40,6 +41,18 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
     algorithm = SimulationAlgorithm.FEHLBERG_87
 
     # Starting dimensions
+
+    # Low energy area
+    # origAngle1Min = -pi
+    # origAngle1Max = pi
+    # origAngle2Min = -pi
+    # origAngle2Max = pi
+
+    # origAngle1Min = -0.09779127522770972
+    # origAngle1Max = 0.09855826562165235
+    # origAngle2Min = -2.5609809253750777
+    # origAngle2Max = -2.3646313845257163
+
     # High energy area fully zoomed out
     # origAngle1Min = -2*pi
     # origAngle1Max = 0
@@ -47,10 +60,17 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
     # origAngle2Max = 2*pi
 
     # High energy area zoomed in 2x
-    origAngle1Min = -2*pi + 2*pi/4
-    origAngle1Max = 0 - 2*pi/4
-    origAngle2Min = 0 + 2*pi/4
-    origAngle2Max = 2*pi - 2*pi/4
+    # origAngle1Min = -2*pi + 2*pi/4
+    # origAngle1Max = 0 - 2*pi/4
+    # origAngle2Min = 0 + 2*pi/4
+    # origAngle2Max = 2*pi - 2*pi/4
+
+    # Performance Test
+    origAngle1Min = -2.0611308887975603
+    origAngle1Max = -2.054994965646018
+    origAngle2Min = 4.488643501401681
+    origAngle2Max = 4.494779424553224
+
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -198,10 +218,11 @@ class DoublePendulumChaosAmountFractalApp(tk.Tk):
 
 
     def print_angle_boundaries(self):
-        logger.info('self.simulator.set_angle1_min(' + str(self.simulator.angle1Min) + ')')
-        logger.info('self.simulator.set_angle1_max(' + str(self.simulator.angle1Max) + ')')
-        logger.info('self.simulator.set_angle2_min(' + str(self.simulator.angle2Min) + ')')
-        logger.info('self.simulator.set_angle2_max(' + str(self.simulator.angle2Max) + ')')
+        logger.info('origAngle1Min = ' + str(self.simulator.angle1Min))
+        logger.info('origAngle1Max = ' + str(self.simulator.angle1Max))
+        logger.info('origAngle2Min = ' + str(self.simulator.angle2Min))
+        logger.info('origAngle2Max = ' + str(self.simulator.angle2Max))
+
 
         logger.info('minAngle1 = ' + str(self.simulator.angle1Min))
         logger.info('maxAngle1 = ' + str(self.simulator.angle1Max))

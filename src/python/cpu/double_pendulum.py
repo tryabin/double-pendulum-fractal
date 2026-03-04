@@ -131,10 +131,21 @@ class PrimaryWindow(pyglet.window.Window):
     # maxAngle2 = 4.519661168175526
 
     # Recurrence Time: 26.4333
-    minAngle1 = -1.686468065581398
-    maxAngle1 = -1.6834001040056268
-    minAngle2 = -0.5629829333789358
-    maxAngle2 = -0.5599149718031644
+    # minAngle1 = -1.686468065581398
+    # maxAngle1 = -1.6834001040056268
+    # minAngle2 = -0.5629829333789358
+    # maxAngle2 = -0.5599149718031644
+
+    # Recurrence Time: 19.6
+    # minAngle1 = -2.0611308887975603
+    # maxAngle1 = -2.054994965646018
+    # minAngle2 = 4.488643501401681
+    # maxAngle2 = 4.494779424553224
+
+    minAngle1 = -0.09779127522770972
+    maxAngle1 = 0.09855826562165235
+    minAngle2 = -2.5609809253750777
+    maxAngle2 = -2.3646313845257163
 
     point1Angle = (maxAngle1 - minAngle1)/2 + minAngle1
     point2Angle = (maxAngle2 - minAngle2)/2 + minAngle2

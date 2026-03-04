@@ -179,7 +179,8 @@ class GenerateDoublePendulumFractalImages:
 
             # Run the simulation for this iteration
             start = time.time()
-            self.simulator.compute_new_pendulum_states_amount_of_chaos_adaptive_step_size_method(currentStates, chaosAmountData, timeAlreadySimulated, timeAlreadySimulated + curTimeToSimulate, timeAlreadySimulated == 0)
+            # self.simulator.compute_new_pendulum_states_amount_of_chaos_adaptive_step_size_method(currentStates, chaosAmountData, timeAlreadySimulated, timeAlreadySimulated + curTimeToSimulate, timeAlreadySimulated == 0)
+            self.simulator.compute_new_pendulum_states_amount_of_chaos_adaptive_step_size_method_simplified(currentStates, chaosAmountData, timeAlreadySimulated, timeAlreadySimulated + curTimeToSimulate, timeAlreadySimulated == 0)
             curSimulationRuntime = time.time() - start
 
             # Compute the chaos amount

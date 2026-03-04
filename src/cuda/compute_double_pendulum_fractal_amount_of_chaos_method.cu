@@ -1,3 +1,5 @@
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 #include <adaptive_step_size_methods.h>
 
 #define CHAOTIC (0)

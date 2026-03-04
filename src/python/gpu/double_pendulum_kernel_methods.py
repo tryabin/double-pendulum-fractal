@@ -91,6 +91,9 @@ class DoublePendulumCudaSimulator:
             self.computeDoublePendulumFractalWithAmountOfChaosMethod = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=amountOfChaosKernelOptions).get_function('compute_double_pendulum_fractal_amount_of_chaos_method')
             self.computeAmountOfChaos = SourceModule(read_file(amountOfChaosMethodKernelFile), include_dirs=[includeDir], options=options).get_function('compute_amount_of_chaos')
 
+            amountOfChaosMethodKernelSimplifiedFile = 'src/cuda/compute_double_pendulum_fractal_amount_of_chaos_method_simplified.cu'
+            self.computeDoublePendulumFractalWithAmountOfChaosMethodSimplified = SourceModule(read_file(amountOfChaosMethodKernelSimplifiedFile), include_dirs=[includeDir], options=amountOfChaosKernelOptions).get_function('compute_double_pendulum_fractal_amount_of_chaos_method_simplified')
+
 
     def get_directory_to_save_data(self):
         return self.directoryToSaveData
@@ -323,9 +326,47 @@ class DoublePendulumCudaSimulator:
                                                                  block=(16, 16, 1), grid=(256, 256))
                                                                  # block=(32, 32, 1), grid=(32, 32))
 
+
+
         # Print the time it took to run the kernel.
         timeToExecuteLastKernel = time.time() - kernelStart
         logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
+
+
+    def compute_new_pendulum_states_amount_of_chaos_adaptive_step_size_method_simplified(self, currentStates, amountOfChaos, timeAlreadyExecuted, maxTimeToExecute, startFromDefaultState):
+            logger.info('Computing new pendulum states with ' + str(self.algorithm.name) + ' method')
+            logger.info('Using the "amount of chaos" simplified kernel')
+            logger.info('time step: ' + str(self.timeStep) + ' seconds')
+            logger.info('error tolerance: ' + str(self.errorTolerance))
+            logger.info('amount of time already computed: ' + str(timeAlreadyExecuted) + ' seconds')
+            logger.info('max time to simulate: ' + str(maxTimeToExecute) + ' seconds')
+            logger.info('amount of time to simulate: ' + str(maxTimeToExecute - timeAlreadyExecuted) + ' seconds')
+
+            # Compute the double pendulum fractal image.
+            logger.info('Running pendulum simulation kernel...')
+            kernelStart = time.time()
+
+            self.computeDoublePendulumFractalWithAmountOfChaosMethodSimplified(self.npFloatType(self.angle1Min), self.npFloatType(self.angle1Max),
+                                                                               self.npFloatType(self.angle2Min), self.npFloatType(self.angle2Max),
+                                                                               cuda.InOut(currentStates),
+                                                                               cuda.In(amountOfChaos),
+                                                                               np.int32(startFromDefaultState),
+                                                                               self.npFloatType(timeAlreadyExecuted),
+                                                                               np.int32(self.numberOfAnglesToTestX), np.int32(self.numberOfAnglesToTestY),
+                                                                               self.npFloatType(self.timeStep),
+                                                                               self.npFloatType(self.errorTolerance),
+                                                                               self.npFloatType(maxTimeToExecute),
+                                                                               # block=(1, 1, 1), grid=(1, 1))
+                                                                               # block=(2, 2, 1), grid=(1, 1))
+                                                                               # block=(4, 4, 1), grid=(4, 4))
+                                                                               # block=(8, 8, 1), grid=(8, 8))
+                                                                               # block=(16, 16, 1), grid=(16, 16))
+                                                                               block=(16, 16, 1), grid=(256, 256))
+                                                                               # block=(32, 32, 1), grid=(32, 32))
+
+            # Print the time it took to run the kernel.
+            timeToExecuteLastKernel = time.time() - kernelStart
+            logger.info('Completed pendulum simulation kernel in ' + str(timeToExecuteLastKernel) + ' seconds')
 
 
     def compute_chaos_amount_from_pendulum_states(self, currentStates, amountOfChaos, differenceCutoff):
@@ -344,7 +385,7 @@ class DoublePendulumCudaSimulator:
 
 
     def create_image_from_amount_of_chaos(self, currentStates, amountOfChaos, differenceCutoff):
-        logger.info('Creating image from chaos amount flip...')
+        logger.info('Creating image from amount of chaos...')
         logger.info('differenceCutoff = ' + str(differenceCutoff))
 
         # Run a kernel to compute the colors from the time step counts.
